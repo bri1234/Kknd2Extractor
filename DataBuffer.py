@@ -50,6 +50,54 @@ def ReadUInt32BE(file : BufferedReader) -> int:
     """
     return struct.unpack(">I", file.read(4))[0]
 
+def GetInt16LE(data : bytearray, index : int) -> int:
+    """ Reads a 16 bit signed integer (little endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from("<h", data, index)[0]
+
+def GetInt16BE(data : bytearray, index : int) -> int:
+    """ Reads a 16 bit signed integer (big endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from(">h", data, index)[0]
+
+def GetUInt16LE(data : bytearray, index : int) -> int:
+    """ Reads a 16 bit unsigned integer (little endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from("<H", data, index)[0]
+
+def GetUInt16BE(data : bytearray, index : int) -> int:
+    """ Reads a 16 bit unsigned integer (big endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from(">H", data, index)[0]
+
 def GetInt32LE(data : bytearray, index : int) -> int:
     """ Reads a 32 bit signed integer (little endian) from a file.
 
@@ -111,5 +159,21 @@ def GetString(data : bytearray, index : int, length : int) -> str:
     """
 
     dataStr = data[index : index + length]
+    return dataStr.decode("ASCII")
+
+def GetStringReverse(data : bytearray, index : int, length : int) -> str:
+    """ Reads a string reverse from a data buffer.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the string starts.
+        length (int): The length of the string in bytes.
+
+    Returns:
+        str: The string.
+    """
+
+    dataStr = data[index : index + length]
+    dataStr.reverse()
     return dataStr.decode("ASCII")
 

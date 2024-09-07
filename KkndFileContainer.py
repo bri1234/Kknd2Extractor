@@ -7,7 +7,8 @@ class ContainerFile:
     """ This class represents one raw file in the file container.
     """
 
-    Index : int             # index of the file
+    Index : int             # index of the file (some files can be missing)
+    FileNumber : int        # index of the file (consecutive number)
     FileType : str          # type of file, e.g. MOBD
 
     FileOffset : int        # the offset of the corresponding file list
@@ -17,7 +18,8 @@ class ContainerFile:
     
     FileName : str          # Name of the file (optional)
     
-    def __init__(self, index : int, fileType : str) -> None:
+    def __init__(self, fileNumber : int, index : int, fileType : str) -> None:
+        self.FileNumber = fileNumber
         self.Index = index
         self.FileType = fileType
 
@@ -125,6 +127,7 @@ def __ReadFileList(data : bytearray, fileType : str, fileListOffset : int, fileL
         raise Exception(f"Can not read file list: invalid length: {fileListLength}")
     
     # read the offset of each file
+    fileNumber = 0
     for index in range(fileListLength // 4):
         fileOffset = GetUInt32LE(data, fileListOffset + index * 4)
 
@@ -132,9 +135,10 @@ def __ReadFileList(data : bytearray, fileType : str, fileListOffset : int, fileL
         if fileOffset == 0:
             continue
 
-        file = ContainerFile(index, fileType)
+        file = ContainerFile(fileNumber, index, fileType)
         file.FileOffset = fileOffset
         fileList.append(file)
+        fileNumber += 1
 
     # calculate the file length of each file
     for idx in range(len(fileList)):

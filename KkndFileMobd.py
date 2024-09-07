@@ -1,23 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from DataBuffer import GetInt32LE, GetUInt32LE, GetString
-
-# for debugging: list of animation headers
-AnimationHeaders : dict[int, int] = {}
-
-def CountAnimationHeader(header : int) -> None:
-    """ For debugging: count animation header IDs.
-    
-    Args:
-        data (bytearray): The raw data of the MOBD file.
-        fileOffset (int): The offset of the MOBD file in the file container.
-    """
-    global AnimationHeaders
-
-    if header in AnimationHeaders:
-        AnimationHeaders[header] += 1
-    else:
-        AnimationHeaders[header] = 1
+from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetStringReverse
 
 class ModbPoint:
     """ This class represents one point.
@@ -42,11 +25,43 @@ class ModbPoint:
 
         self.Id = GetUInt32LE(data, position + 0)
 
-        self.Px = GetInt32LE(data, position + 4) >> 8
-        self.Py = GetInt32LE(data, position + 8) >> 8
-        self.Pz = GetInt32LE(data, position + 12) >> 8
+        self.Px = GetInt32LE(data, position + 4) // 256
+        self.Py = GetInt32LE(data, position + 8) // 256
+        self.Pz = GetInt32LE(data, position + 12) // 256
 
         return position + 16
+
+class MobdPalette:
+
+    Colors : list[int]
+
+    def __init__(self) -> None:
+        self.Colors = []
+
+    def ReadPalette(self, data : bytearray, palettePosition : int, fileOffset : int) -> None:
+
+        self.Colors = []
+        numColors = GetUInt16LE(data, palettePosition + 12)
+        colorPosition = palettePosition + 14
+
+        for _ in range(numColors):
+            color16 = GetUInt16LE(data, colorPosition)
+            colorPosition += 2
+
+            red = ((color16 & 0x7c00) >> 7) & 0xFF
+            green = ((color16 & 0x03e0) >> 2) & 0xFF
+            blue = ((color16 & 0x001f) << 3) & 0xFF
+
+            color24 = (red << 16) | (green << 8) | blue
+            self.Colors.append(color24)
+
+class MobdImage:
+
+    def __init__(self) -> None:
+        pass
+
+    def ReadImage(self, data : bytearray, imagePosition : int, fileOffset : int, flags : int) -> None:
+        pass
 
 class MobdFrame:
     """ This is one frame of the animation.
@@ -59,9 +74,13 @@ class MobdFrame:
     OffsetY : int
 
     PointList : list[ModbPoint]
+    Palette : MobdPalette
+    Image : MobdImage
 
     def __init__(self) -> None:
         self.PointList = []
+        self.Palette = MobdPalette()
+        self.Image = MobdImage()
     
     def ReadFrame(self, data : bytearray, framePosition : int, fileOffset : int) -> None:
         """ Reads one frame from the animation.
@@ -74,9 +93,7 @@ class MobdFrame:
         self.OffsetY = GetInt32LE(data, framePosition + 4)
 
         renderFlagsOffset = GetUInt32LE(data, framePosition + 12)
-
         boxListOffset = GetUInt32LE(data, framePosition + 16)      # 2 points, min and max (???)
-
         pointListOffset = GetUInt32LE(data, framePosition + 24)
 
         # Comment from OpenKrush:
@@ -88,23 +105,29 @@ class MobdFrame:
             self.PointList = MobdFrame.__ReadPointList(data, pointListOffset - fileOffset)
 
         if renderFlagsOffset > 0:
-            MobdFrame.__ReadRenderFlags(data, renderFlagsOffset - fileOffset)
+            self.Image, self.Palette = MobdFrame.__ReadRenderFlags(data, renderFlagsOffset - fileOffset, fileOffset)
 
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)
 
     @staticmethod
-    def __ReadRenderFlags(data : bytearray, position : int) -> None:
-        frameType = GetString(data, position + 0, 4)
+    def __ReadRenderFlags(data : bytearray, position : int, fileOffset : int) -> tuple[MobdImage, MobdPalette]:
+        frameType = GetStringReverse(data, position + 0, 4)
+        if frameType != "SPNS" and frameType != "SPRC":
+            raise Exception(f"Invalid frame format: {frameType}")
+        
         flags = GetUInt32LE(data, position + 4)
-    
-    @staticmethod
-    def __ReadBoxList(data : bytearray, position : int) -> None:
-        tst1 = GetUInt32LE(data, position + 0)
-        tst2 = GetUInt32LE(data, position + 4)
-        tst3 = GetUInt32LE(data, position + 8)
-        tst4 = GetUInt32LE(data, position + 12)
+        paletteOffset = GetUInt32LE(data, position + 8)
+        imageOffset = GetUInt32LE(data, position + 12)
 
+        palette = MobdPalette()
+        palette.ReadPalette(data, paletteOffset - fileOffset, fileOffset)
+
+        image = MobdImage()
+        image.ReadImage(data, imageOffset - fileOffset, fileOffset, flags)
+
+        return image, palette
+    
     @staticmethod
     def __ReadPointList(data : bytearray, position : int) -> list[ModbPoint]:
         pointList : list[ModbPoint] = []
@@ -119,6 +142,16 @@ class MobdFrame:
             pointList.append(point)
 
         return pointList
+    
+    @staticmethod
+    def __ReadBoxList(data : bytearray, position : int) -> None:
+        # TODO: read the boxes ???
+        pass
+        # tst1 = GetUInt32LE(data, position + 0)
+        # tst2 = GetUInt32LE(data, position + 4)
+        # tst3 = GetUInt32LE(data, position + 8)
+        # tst4 = GetUInt32LE(data, position + 12)
+
 
 class MobdAnimation:
     """ This class represents an animation that consists of a list of frames.
@@ -126,9 +159,11 @@ class MobdAnimation:
 
     FrameList : list[MobdFrame]
     IsRotationalAnimation : bool = False
-    
-    def __init__(self) -> None:
+    AnimationNumber : int
+
+    def __init__(self, animationNumber : int) -> None:
         self.FrameList = []
+        self.AnimationNumber = animationNumber
     
     def ReadAnimation(self, data : bytearray, position : int, fileOffset : int) -> tuple[int, int]:
         """ Read one animation from the data file.
@@ -141,6 +176,7 @@ class MobdAnimation:
         Returns:
             tuple[int, bool]: Position after this animation, True if animation is valid.
         """
+        self.FrameList = []
 
         # 1. animation header: format is 0xCCBBAA00 (animation speed???)
         animationHeader = GetUInt32LE(data, position)
@@ -170,6 +206,8 @@ class MobdAnimation:
             frameCount += 1
             offsetFirstFrame = min(offsetFirstFrame, framePositionCorrected)
 
+            self.FrameList.append(frame)
+
             position += 4
             framePosition = GetUInt32LE(data, position)
 
@@ -179,10 +217,8 @@ class MobdAnimation:
 
         print(f"Animation end: 0x{animationEnd:08X} Number of frames: {frameCount}")
 
-        if frameCount == 0:
-            raise Exception("Error, no frames in animation!")
-
-        CountAnimationHeader(animationHeader)
+        # if frameCount == 0:
+        #     raise Exception("Error, no frames in animation!")
 
         return position, offsetFirstFrame
 
@@ -214,29 +250,35 @@ class Mobd:
         4 bytes     0x00000000          no firther animations
         """
 
+        animationNumber = 0
         position = 0
         offsetFirstFrame = 0xFFFFFFFF
         value = GetUInt32LE(data, position)
 
         animationOffsetDict : dict[int, MobdAnimation] = {}
 
-        while value != 0:
+        while (value & 0xFF000000) != 0:
             if position >= offsetFirstFrame:
-                raise Exception(f"Invalid position for animation: First frame: {offsetFirstFrame} current position: {position}")
+                print(f"WARNING: Invalid position for animation: First frame: {offsetFirstFrame} current position: {position}")
+                break
             
             animationOffset = position
 
-            animation = MobdAnimation()
+            animation = MobdAnimation(animationNumber)
             position, animationOffsetFirstFrame = animation.ReadAnimation(data, position, fileOffset)
 
-            self.AnimationList.append(animation)
-            animationOffsetDict[animationOffset] = animation
-            offsetFirstFrame = min(offsetFirstFrame, animationOffsetFirstFrame)
+            if len(animation.FrameList) > 0:
+                print(f"Animation {animationNumber}")
+                self.AnimationList.append(animation)
+                animationOffsetDict[animationOffset] = animation
+                offsetFirstFrame = min(offsetFirstFrame, animationOffsetFirstFrame)
+                animationNumber += 1
 
             value = GetUInt32LE(data, position)
 
         # the animation is a rotational animation if the animation offset is listed in the data block
-        # between the last animation and the first frame
+        # between the last animation and the first frame,
+        # otherwise it is a simple animation
         while position < offsetFirstFrame:
             value = GetUInt32LE(data, position)
             position += 4

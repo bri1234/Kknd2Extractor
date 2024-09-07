@@ -81,7 +81,7 @@ def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
             ExportContainerFiles(file.path, "MOBD", "out")
 
 def TestMobdAnimation(file : ContainerFile) -> None:
-    print(f"*** FILE {file.Index} ***")
+    print(f"*** FILE Number {file.FileNumber} Index {file.Index} ***")
     mobd = _mobd.Mobd()
     mobd.ReadAnimations(file.RawData, file.FileOffset)
 
@@ -100,6 +100,24 @@ def TestMobd(containerFileName : str, fileTypeStr : str, fileIndex : int | None 
 
             break
 
+def TestMobdDir(directoryPath : str, fileEnding : str | None = None) -> None:
+
+    for dir in os.scandir(directoryPath):
+        if not dir.is_dir():
+            continue
+
+        for file in os.scandir(dir):
+            if not file.is_file():
+                continue
+            
+            if (fileEnding is not None) and (not file.path.endswith(fileEnding)):
+                continue
+
+            print("******************************************")
+            print(f"********** {file.path} **********")
+
+            TestMobd(file.path, "MOBD")
+
 if __name__ == "__main__":
     
     # ShowContentOfFilesInDirectory("assets", ".lpk")
@@ -114,9 +132,10 @@ if __name__ == "__main__":
     # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
 
     TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
-    # TestMobd("assets/spritesheets/gluesprt.lpk", "MOBD")
+    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 52)
+    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD")
+    # TestMobdDir("assets", ".lpk")
 
-    print("--------------------------------------------------------")
-    for header in _mobd.AnimationHeaders:
-        print(f"Animation headers: 0x{header:08X}")
+
+
 
