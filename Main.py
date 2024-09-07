@@ -113,7 +113,7 @@ if __name__ == "__main__":
     # ExportFile("assets/spritesheets/gluesprt.lpk", 2)
     # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
 
-    TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 0)
+    TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
     # TestMobd("assets/spritesheets/gluesprt.lpk", "MOBD")
 
     print("--------------------------------------------------------")

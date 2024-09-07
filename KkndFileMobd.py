@@ -75,7 +75,7 @@ class MobdFrame:
 
         renderFlagsOffset = GetUInt32LE(data, framePosition + 12)
 
-        boxListOffset = GetUInt32LE(data, framePosition + 16)      # 2 points, min and max
+        boxListOffset = GetUInt32LE(data, framePosition + 16)      # 2 points, min and max (???)
 
         pointListOffset = GetUInt32LE(data, framePosition + 24)
 
@@ -83,10 +83,6 @@ class MobdFrame:
         # // Theoretically we could also read the boxes here.
 		# // However they contain info about hitshapes etc. We define them in yaml to be able to tweak them.
 		# // But the points are required for turrets, muzzles and projectile launch offsets.
-
-        # *****************************************************************************
-        # *** Achtung: muss hier noch das Offset des MOBD files abgezogen werden??? ***
-        # *****************************************************************************
 
         if pointListOffset > 0:
             self.PointList = MobdFrame.__ReadPointList(data, pointListOffset - fileOffset)
@@ -129,11 +125,12 @@ class MobdAnimation:
     """
 
     FrameList : list[MobdFrame]
-
+    IsRotationalAnimation : bool = False
+    
     def __init__(self) -> None:
         self.FrameList = []
     
-    def ReadAnimation(self, data : bytearray, position : int, fileOffset : int) -> tuple[int, bool]:
+    def ReadAnimation(self, data : bytearray, position : int, fileOffset : int) -> tuple[int, int]:
         """ Read one animation from the data file.
 
         Args:
@@ -156,9 +153,9 @@ class MobdAnimation:
         #       0x00000000 = no further animations
 
         fileLength = len(data)
-        isValid = True
         frameCount = 0
         framePosition = GetUInt32LE(data, position)
+        offsetFirstFrame = 0xFFFFFFFF
 
         while (framePosition != 0) and (framePosition != 0xFFFFFFFF):
             
@@ -166,26 +163,28 @@ class MobdAnimation:
             framePositionCorrected = framePosition - fileOffset
 
             if (framePositionCorrected < 0) or (framePositionCorrected >= fileLength):
-                isValid = False
-                print(f"Invalid frame position: {framePosition} (0x{framePosition:08X}) corrected: {framePositionCorrected} (0x{framePositionCorrected:08X})")
+                raise Exception(f"Invalid frame position: {framePosition} (0x{framePosition:08X}) corrected: {framePositionCorrected} (0x{framePositionCorrected:08X})")
 
             frame = MobdFrame()
             frame.ReadFrame(data, framePositionCorrected, fileOffset)
             frameCount += 1
+            offsetFirstFrame = min(offsetFirstFrame, framePositionCorrected)
 
             position += 4
             framePosition = GetUInt32LE(data, position)
 
-        # 3. animation end: 0 = repeat, -1 = do not repeat (???)
+        # 3. animation end: 0 = repeat, 0xFFFFFFFF = do not repeat (???)
         animationEnd = GetUInt32LE(data, position)
         position += 4
 
         print(f"Animation end: 0x{animationEnd:08X} Number of frames: {frameCount}")
 
-        if isValid and (frameCount > 0):
-            CountAnimationHeader(animationHeader)
+        if frameCount == 0:
+            raise Exception("Error, no frames in animation!")
 
-        return position, isValid and (frameCount > 0)
+        CountAnimationHeader(animationHeader)
+
+        return position, offsetFirstFrame
 
 class Mobd:
     """ This class represents the contents of a MOBD file.
@@ -216,14 +215,37 @@ class Mobd:
         """
 
         position = 0
+        offsetFirstFrame = 0xFFFFFFFF
         value = GetUInt32LE(data, position)
 
-        while value != 0:
-            animation = MobdAnimation()
-            position, isValid = animation.ReadAnimation(data, position, fileOffset)
+        animationOffsetDict : dict[int, MobdAnimation] = {}
 
-            if isValid:
-                self.AnimationList.append(animation)
+        while value != 0:
+            if position >= offsetFirstFrame:
+                raise Exception(f"Invalid position for animation: First frame: {offsetFirstFrame} current position: {position}")
+            
+            animationOffset = position
+
+            animation = MobdAnimation()
+            position, animationOffsetFirstFrame = animation.ReadAnimation(data, position, fileOffset)
+
+            self.AnimationList.append(animation)
+            animationOffsetDict[animationOffset] = animation
+            offsetFirstFrame = min(offsetFirstFrame, animationOffsetFirstFrame)
 
             value = GetUInt32LE(data, position)
+
+        # the animation is a rotational animation if the animation offset is listed in the data block
+        # between the last animation and the first frame
+        while position < offsetFirstFrame:
+            value = GetUInt32LE(data, position)
+            position += 4
+            if value == 0:
+                continue
+            
+            offset = value - fileOffset
+            if offset in animationOffsetDict:
+                animationOffsetDict[offset].IsRotationalAnimation = True
+        
+
 
