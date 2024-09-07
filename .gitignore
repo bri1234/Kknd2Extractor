@@ -1,0 +1,5 @@
+assets
+__pycache__
+.mypy_cache
+out
+*~
