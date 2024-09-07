@@ -6,11 +6,11 @@ class ModbPoint:
     """ This class represents one point.
     """
 
-    Id : int
+    Id : int = 0
 
-    Px : int
-    Py : int
-    Pz : int    # unused
+    Px : int = 0
+    Py : int = 0
+    Pz : int = 0    # unused
 
     def ReadPoint(self, data : bytearray, position : int) -> int:
         """ Reads one point from the raw data.
@@ -57,11 +57,53 @@ class MobdPalette:
 
 class MobdImage:
 
-    def __init__(self) -> None:
-        pass
+    Width : int = 0
+    Height : int = 0
+    Pixels : bytearray
 
-    def ReadImage(self, data : bytearray, imagePosition : int, fileOffset : int, flags : int) -> None:
-        pass
+    def __init__(self) -> None:
+        self.Pixels = bytearray()
+
+    def ReadImage(self, data : bytearray, imagePosition : int, flags : int) -> None:
+        self.Pixels = bytearray()
+
+        self.Width = GetInt32LE(data, imagePosition + 0)
+        self.Height = GetInt32LE(data, imagePosition + 4)
+
+        isFlipped = (flags & (1 << 31)) != 0
+        isCompressed = (flags & (1 << 27)) != 0
+        has256Colors = (flags & (1 << 26)) != 0
+
+        pixelDataPosition = imagePosition + 8
+
+        if isCompressed:
+            self.Pixels = MobdImage.Decompress(data, pixelDataPosition, has256Colors)
+        else:
+            self.Pixels = data[pixelDataPosition : pixelDataPosition + self.Width * self.Height]
+
+        if isFlipped:
+            self.Pixels = MobdImage.FlipPixels(self.Pixels, self.Width, self.Height)
+
+    @staticmethod
+    def Decompress(data : bytearray, position : int, has256Colors : bool) -> bytearray:
+
+        # TODO: programmieren
+
+        
+        return bytearray()
+    
+    @staticmethod
+    def FlipPixels(pixels : bytearray, width : int, height : int) -> bytearray:
+
+        flippedPixels = bytearray()
+
+        for rowIdx in range(height):
+            row = pixels[rowIdx * width : (rowIdx + 1) * width]
+            row.reverse()
+
+            flippedPixels.extend(row)
+
+        return flippedPixels
 
 class MobdFrame:
     """ This is one frame of the animation.
@@ -70,8 +112,8 @@ class MobdFrame:
     # The sprite offset from the center point of the image:
     # SpriteOffsetX = width / 2 - x
     # SpriteOffsetY = height / 2 - y
-    OffsetX : int
-    OffsetY : int
+    OffsetX : int = 0
+    OffsetY : int = 0
 
     PointList : list[ModbPoint]
     Palette : MobdPalette
@@ -124,7 +166,7 @@ class MobdFrame:
         palette.ReadPalette(data, paletteOffset - fileOffset, fileOffset)
 
         image = MobdImage()
-        image.ReadImage(data, imageOffset - fileOffset, fileOffset, flags)
+        image.ReadImage(data, imageOffset - fileOffset, flags)
 
         return image, palette
     
