@@ -89,6 +89,7 @@ class MobdImage:
 
         size = width * height
         pixels = bytearray()
+        line = bytearray()
         position = pixelDataPosition
 
         while len(pixels) < size:
@@ -107,59 +108,59 @@ class MobdImage:
                 pixels.extend([0] * width)
 
             elif (not has256Colors) and (compressedSize > 0x80):
+                line.clear()
                 pixelCount = compressedSize - 0x80
-                row : list[int] = []
 
                 for _ in range(pixelCount):
                     twoPixels = GetUInt8(data, position)
                     position += 1
 
                     # store first pixel
-                    row.append((twoPixels & 0xF0) >> 4)
+                    line.append((twoPixels & 0xF0) >> 4)
 
                     # store second pixel
-                    if len(row) < width:
-                        row.append(twoPixels & 0x0F)
+                    if len(line) < width:
+                        line.append(twoPixels & 0x0F)
                 
-                pixels.extend(row)
+                if len(line) != width:
+                    raise Exception(f"MobdImage: invalid row size: {len(line)} (width = {width})")
+                
+                pixels.extend(line)
 
             else:
-                pass
+                line.clear()
+                
+                lineEndOffset = position + compressedSize
+                while position < lineEndOffset:
+                    chunkSize = GetUInt8(data, position)
+                    position += 1
 
-			# else
-			# {
-			# 	var lineEndOffset = compressed.Position + compressedSize;
+                    if chunkSize < 0x80:
+                        line.extend([0] * chunkSize)
+                    else:
+                        pixelCount = chunkSize - 0x80
 
-			# 	while (compressed.Position < lineEndOffset)
-			# 	{
-			# 		var chunkSize = compressed.ReadUInt8();
+                        if has256Colors:
+                            byteArray = data[position : position + pixelCount]
+                            position += pixelCount
+                            line.extend(byteArray)
 
-			# 		if (chunkSize < 0x80)
-			# 			decompressed.Position += chunkSize;
-			# 		else
-			# 		{
-			# 			var pixelCount = chunkSize - 0x80;
+                        else:
+                            numBytes = pixelCount // 2 + pixelCount % 2
 
-			# 			if (has256Colors)
-			# 				decompressed.WriteArray(compressed.ReadBytes(pixelCount));
-			# 			else
-			# 			{
-			# 				var size = pixelCount / 2 + pixelCount % 2;
+                            for idx in range(numBytes):
+                                twoPixels = GetUInt8(data, position)
+                                position += 1
 
-			# 				for (var j = 0; j < size; j++)
-			# 				{
-			# 					var twoPixels = compressed.ReadUInt8();
-			# 					decompressed.WriteByte((byte)((twoPixels & 0xF0) >> 4));
+                                line.append((twoPixels & 0xF0) >> 4)
 
-			# 					if (j + 1 < size || pixelCount % 2 == 0)
-			# 						decompressed.WriteByte((byte)(twoPixels & 0x0F));
-			# 				}
-			# 			}
-			# 		}
-			# 	}
-			# }
+                                if (idx + 1 < numBytes) or (pixelCount % 2 == 0):
+                                    line.append(twoPixels & 0x0F)
 
-			# decompressed.Position += (this.Width - decompressed.Position % this.Width) % this.Width;
+                if len(line) != width:
+                    raise Exception(f"MobdImage: invalid row size: {len(line)} (width = {width})")
+                
+                pixels.extend(line)
         
         return pixels
     
