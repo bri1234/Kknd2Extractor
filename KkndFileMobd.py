@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetStringReverse
+from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
 
 class ModbPoint:
     """ This class represents one point.
@@ -48,9 +48,9 @@ class MobdPalette:
             color16 = GetUInt16LE(data, colorPosition)
             colorPosition += 2
 
-            red = ((color16 & 0x7c00) >> 7) & 0xFF
-            green = ((color16 & 0x03e0) >> 2) & 0xFF
-            blue = ((color16 & 0x001f) << 3) & 0xFF
+            red = ((color16 & 0x7C00) >> 7) & 0xFF
+            green = ((color16 & 0x03E0) >> 2) & 0xFF
+            blue = ((color16 & 0x001F) << 3) & 0xFF
 
             color24 = (red << 16) | (green << 8) | blue
             self.Colors.append(color24)
@@ -77,7 +77,7 @@ class MobdImage:
         pixelDataPosition = imagePosition + 8
 
         if isCompressed:
-            self.Pixels = MobdImage.Decompress(data, pixelDataPosition, has256Colors)
+            self.Pixels = MobdImage.Decompress(data, pixelDataPosition, self.Width, self.Height, has256Colors)
         else:
             self.Pixels = data[pixelDataPosition : pixelDataPosition + self.Width * self.Height]
 
@@ -85,12 +85,83 @@ class MobdImage:
             self.Pixels = MobdImage.FlipPixels(self.Pixels, self.Width, self.Height)
 
     @staticmethod
-    def Decompress(data : bytearray, position : int, has256Colors : bool) -> bytearray:
+    def Decompress(data : bytearray, pixelDataPosition : int, width : int, height : int, has256Colors : bool) -> bytearray:
 
-        # TODO: programmieren
+        size = width * height
+        pixels = bytearray()
+        position = pixelDataPosition
 
+        while len(pixels) < size:
+
+            # decompress one row
+            
+            if has256Colors:
+                compressedSize = GetUInt16LE(data, position)
+                position += 2
+            else:
+                compressedSize = GetUInt8(data, position)
+                position += 1
+
+            if compressedSize == 0:
+                # store empty row
+                pixels.extend([0] * width)
+
+            elif (not has256Colors) and (compressedSize > 0x80):
+                pixelCount = compressedSize - 0x80
+                row : list[int] = []
+
+                for _ in range(pixelCount):
+                    twoPixels = GetUInt8(data, position)
+                    position += 1
+
+                    # store first pixel
+                    row.append((twoPixels & 0xF0) >> 4)
+
+                    # store second pixel
+                    if len(row) < width:
+                        row.append(twoPixels & 0x0F)
+                
+                pixels.extend(row)
+
+            else:
+                pass
+
+			# else
+			# {
+			# 	var lineEndOffset = compressed.Position + compressedSize;
+
+			# 	while (compressed.Position < lineEndOffset)
+			# 	{
+			# 		var chunkSize = compressed.ReadUInt8();
+
+			# 		if (chunkSize < 0x80)
+			# 			decompressed.Position += chunkSize;
+			# 		else
+			# 		{
+			# 			var pixelCount = chunkSize - 0x80;
+
+			# 			if (has256Colors)
+			# 				decompressed.WriteArray(compressed.ReadBytes(pixelCount));
+			# 			else
+			# 			{
+			# 				var size = pixelCount / 2 + pixelCount % 2;
+
+			# 				for (var j = 0; j < size; j++)
+			# 				{
+			# 					var twoPixels = compressed.ReadUInt8();
+			# 					decompressed.WriteByte((byte)((twoPixels & 0xF0) >> 4));
+
+			# 					if (j + 1 < size || pixelCount % 2 == 0)
+			# 						decompressed.WriteByte((byte)(twoPixels & 0x0F));
+			# 				}
+			# 			}
+			# 		}
+			# 	}
+			# }
+
+			# decompressed.Position += (this.Width - decompressed.Position % this.Width) % this.Width;
         
-        return bytearray()
+        return pixels
     
     @staticmethod
     def FlipPixels(pixels : bytearray, width : int, height : int) -> bytearray:

@@ -50,6 +50,30 @@ def ReadUInt32BE(file : BufferedReader) -> int:
     """
     return struct.unpack(">I", file.read(4))[0]
 
+def GetInt8(data : bytearray, index : int) -> int:
+    """ Reads a 8 bit signed integer (little endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from("=b", data, index)[0]
+
+def GetUInt8(data : bytearray, index : int) -> int:
+    """ Reads a 8 bit unsigned integer (little endian) from a file.
+
+    Args:
+        data (bytearray): The data buffer.
+        index (int): The index where the integer starts.
+
+    Returns:
+        int: The number.
+    """
+    return struct.unpack_from("=B", data, index)[0]
+
 def GetInt16LE(data : bytearray, index : int) -> int:
     """ Reads a 16 bit signed integer (little endian) from a file.
 
