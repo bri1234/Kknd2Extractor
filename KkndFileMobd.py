@@ -64,6 +64,9 @@ class MobdImage:
     def __init__(self) -> None:
         self.Pixels = bytearray()
 
+    def GetPixel(self, x : int, y : int) -> int:
+        return self.Pixels[x + y * self.Width]
+    
     def ReadImage(self, data : bytearray, imagePosition : int, flags : int) -> None:
         self.Pixels = bytearray()
 
@@ -89,13 +92,10 @@ class MobdImage:
 
         size = width * height
         pixels = bytearray()
-        line = bytearray()
         position = pixelDataPosition
 
         while len(pixels) < size:
 
-            # decompress one row
-            
             if has256Colors:
                 compressedSize = GetUInt16LE(data, position)
                 position += 2
@@ -108,42 +108,36 @@ class MobdImage:
                 pixels.extend([0] * width)
 
             elif (not has256Colors) and (compressedSize > 0x80):
-                line.clear()
                 pixelCount = compressedSize - 0x80
+                cnt = 0
 
                 for _ in range(pixelCount):
                     twoPixels = GetUInt8(data, position)
                     position += 1
 
                     # store first pixel
-                    line.append((twoPixels & 0xF0) >> 4)
+                    pixels.append((twoPixels & 0xF0) >> 4)
+                    cnt += 1
 
                     # store second pixel
-                    if len(line) < width:
-                        line.append(twoPixels & 0x0F)
+                    if cnt < width:
+                        pixels.append(twoPixels & 0x0F)
+                        cnt += 1
                 
-                if len(line) != width:
-                    raise Exception(f"MobdImage: invalid row size: {len(line)} (width = {width})")
-                
-                pixels.extend(line)
-
             else:
-                line.clear()
-                
                 lineEndOffset = position + compressedSize
                 while position < lineEndOffset:
                     chunkSize = GetUInt8(data, position)
                     position += 1
 
                     if chunkSize < 0x80:
-                        line.extend([0] * chunkSize)
+                        pixels.extend([0] * chunkSize)
                     else:
                         pixelCount = chunkSize - 0x80
 
                         if has256Colors:
-                            byteArray = data[position : position + pixelCount]
+                            pixels.extend(data[position : position + pixelCount])
                             position += pixelCount
-                            line.extend(byteArray)
 
                         else:
                             numBytes = pixelCount // 2 + pixelCount % 2
@@ -152,15 +146,14 @@ class MobdImage:
                                 twoPixels = GetUInt8(data, position)
                                 position += 1
 
-                                line.append((twoPixels & 0xF0) >> 4)
+                                pixels.append((twoPixels & 0xF0) >> 4)
 
                                 if (idx + 1 < numBytes) or (pixelCount % 2 == 0):
-                                    line.append(twoPixels & 0x0F)
+                                    pixels.append(twoPixels & 0x0F)
 
-                if len(line) != width:
-                    raise Exception(f"MobdImage: invalid row size: {len(line)} (width = {width})")
-                
-                pixels.extend(line)
+            cnt = (width - len(pixels) % width) % width
+            if cnt > 0:
+                pixels.extend([0] * cnt)
         
         return pixels
     
@@ -274,6 +267,8 @@ class MobdAnimation:
     FrameList : list[MobdFrame]
     IsRotationalAnimation : bool = False
     AnimationNumber : int
+    AnimationHeader : int
+    AnimationEnd : int
 
     def __init__(self, animationNumber : int) -> None:
         self.FrameList = []
@@ -293,10 +288,10 @@ class MobdAnimation:
         self.FrameList = []
 
         # 1. animation header: format is 0xCCBBAA00 (animation speed???)
-        animationHeader = GetUInt32LE(data, position)
+        self.AnimationHeader = GetUInt32LE(data, position)
         position += 4
 
-        print(f"Animation header: 0x{animationHeader:08X}")
+        # print(f"Animation header: 0x{self.AnimationHeader:08X}")
 
         # 2. list of frame offsets terminated by 0 or -1 (0xFFFFFFFF)
         #       0xFFFFFFFF = more animations follow
@@ -326,10 +321,10 @@ class MobdAnimation:
             framePosition = GetUInt32LE(data, position)
 
         # 3. animation end: 0 = repeat, 0xFFFFFFFF = do not repeat (???)
-        animationEnd = GetUInt32LE(data, position)
+        self.AnimationEnd = GetUInt32LE(data, position)
         position += 4
 
-        print(f"Animation end: 0x{animationEnd:08X} Number of frames: {frameCount}")
+        # print(f"Animation end: 0x{self.AnimationEnd:08X} Number of frames: {frameCount}")
 
         # if frameCount == 0:
         #     raise Exception("Error, no frames in animation!")

@@ -131,10 +131,10 @@ if __name__ == "__main__":
     # ExportFile("assets/spritesheets/gluesprt.lpk", 2)
     # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
 
-    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
+    TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
     # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 52)
     # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD")
-    TestMobdDir("assets", ".lpk")
+    # TestMobdDir("assets", ".lpk")
 
 
 
