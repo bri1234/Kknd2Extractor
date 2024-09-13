@@ -274,6 +274,16 @@ class MobdAnimation:
         self.FrameList = []
         self.AnimationNumber = animationNumber
     
+    def GetMaxWidthAndHeight(self) -> tuple[int, int]:
+        width = 0
+        height = 0
+
+        for frame in self.FrameList:
+            width = max(width, frame.Image.Width)
+            height = max(height, frame.Image.Height)
+
+        return width, height
+    
     def ReadAnimation(self, data : bytearray, position : int, fileOffset : int) -> tuple[int, int]:
         """ Read one animation from the data file.
 
@@ -331,7 +341,7 @@ class MobdAnimation:
 
         return position, offsetFirstFrame
 
-class Mobd:
+class MobdFile:
     """ This class represents the contents of a MOBD file.
         A MOBD file consists of animatations.
     """
@@ -377,7 +387,7 @@ class Mobd:
             position, animationOffsetFirstFrame = animation.ReadAnimation(data, position, fileOffset)
 
             if len(animation.FrameList) > 0:
-                print(f"Animation {animationNumber}")
+                # print(f"Animation {animationNumber}")
                 self.AnimationList.append(animation)
                 animationOffsetDict[animationOffset] = animation
                 offsetFirstFrame = min(offsetFirstFrame, animationOffsetFirstFrame)

@@ -22,11 +22,11 @@ class ContainerFile:
         self.FileNumber = fileNumber
         self.Index = index
         self.FileType = fileType
+        self.FileName = str(index)
 
         self.FileOffset = 0
         self.FileLength = 0
-        self.FileLength = 0
-        self.FileName = ""
+        self.RawData = bytearray()
 
 class ContainerFileType:
     """ This class represents one file type in the file container.

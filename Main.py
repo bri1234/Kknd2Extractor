@@ -82,7 +82,7 @@ def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
 
 def TestMobdAnimation(file : ContainerFile) -> None:
     print(f"*** FILE Number {file.FileNumber} Index {file.Index} ***")
-    mobd = _mobd.Mobd()
+    mobd = _mobd.MobdFile()
     mobd.ReadAnimations(file.RawData, file.FileOffset)
 
 def TestMobd(containerFileName : str, fileTypeStr : str, fileIndex : int | None = None) -> None:

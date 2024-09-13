@@ -1,34 +1,36 @@
 # -*- coding: utf-8 -*-
 
 import tkinter as tk
+from typing import Any
 import KkndFileCompression as compression
 import KkndFileContainer as container
 import KkndFileMobd as kkndMobd
 
-WIDTH = 1000
-HEIGHT = 1000
-
 def SetPixel(img : tk.PhotoImage, x : int, y : int, colorRgb : int) -> None:
     img.put( f"#{colorRgb & 0xFFFFFF:06X}", ( x, y ) )
 
-def DrawImage(image : tk.PhotoImage) -> None:
+def CalculateImageWidthAndHeight(mobdFile : kkndMobd.MobdFile) -> tuple[int, int]:
+    width = 0
+    height = 0
 
-    containerData, _, _ = compression.UncompressFile("assets/spritesheets/gamesprt.lpk")
-    fileTypeList, _ = container.ReadFileTypeList(containerData)
+    for animation in mobdFile.AnimationList:
+        maxWidth, maxHeight = animation.GetMaxWidthAndHeight()
 
-    if fileTypeList[0].FileType != "MOBD":
-        return
-    
-    file = fileTypeList[0].FileList[1]
+        width = max(width, maxWidth * len(animation.FrameList))
+        height += maxHeight
 
-    mobd = kkndMobd.Mobd()
-    mobd.ReadAnimations(file.RawData, file.FileOffset)
-    
+    return width, height
+
+def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.MobdFile) -> None:
+
+    photoImg.blank()
+
     offY = 0
-    for animation in mobd.AnimationList:
-
-        print(f"Number of frames: {len(animation.FrameList)}")
-
+    idx = 0
+    for animation in mobdFile.AnimationList:
+        idx += 1
+        print(f"Draw animation {idx}/{len(mobdFile.AnimationList)}")
+        
         offX = 0
         imgHeight = 0
         for frame in animation.FrameList:
@@ -38,27 +40,60 @@ def DrawImage(image : tk.PhotoImage) -> None:
             for x in range(img.Width):
                 for y in range(img.Height):
                     pixel = img.GetPixel(x, y)
-                    color = palette.Colors[pixel]
-
-                    SetPixel(image, x + offX, y + offY, color)
-
+                    if pixel >= 0 and pixel < len(palette.Colors):
+                        color = palette.Colors[pixel]
+                        SetPixel(photoImg, x + offX, y + offY, color)
 
             offX += img.Width
             imgHeight = max(imgHeight, img.Height)
 
         offY += imgHeight
 
+def ListBoxFileSelected(event : Any) -> None:
+    global FileList, PhotoImg
+    
+    selection : int = event.widget.curselection()[0]
+    file = FileList[selection]
+
+    mobdFile = kkndMobd.MobdFile()
+    mobdFile.ReadAnimations(file.RawData, file.FileOffset)
+
+    CreateFileAnimationsImage(PhotoImg, mobdFile)
+
 def Main() -> None:
+    global FileList, PhotoImg
 
+    containerData, _, _ = compression.UncompressFile("assets/spritesheets/gamesprt.lpk")
+    fileTypeList, _ = container.ReadFileTypeList(containerData)
+
+    if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
+        raise Exception("Unexpected file type")
+
+    FileList = fileTypeList[0].FileList
+    
     window = tk.Tk()
-    canvas = tk.Canvas(window, width=WIDTH, height=HEIGHT, bg="#000000")
-    canvas.pack()
 
-    img = tk.PhotoImage(width=WIDTH, height=HEIGHT)
-    canvas.create_image((WIDTH / 2, HEIGHT / 2), image=img, state="normal") # type: ignore
+    window.columnconfigure(0, weight=1)
+    window.columnconfigure(1, weight=1)
+    window.columnconfigure(2, weight=1000)
+    window.rowconfigure(0, weight=1)
 
-    DrawImage(img)
+    sb = tk.Scrollbar(window)
+    sb.grid(column=0, row=0, sticky="NS")
 
+    lb = tk.Listbox(window, yscrollcommand = sb.set)
+    lb.grid(column=1, row=0, sticky="NSWE")
+    lb.bind("<<ListboxSelect>>", ListBoxFileSelected)
+    sb.config(command = lb.yview) # type: ignore
+
+    canvas = tk.Canvas(window, bg="black")
+    PhotoImg = tk.PhotoImage(width=1000, height=1000)
+    canvas.create_image((PhotoImg.width() / 2, PhotoImg.height() / 2), image=PhotoImg, state="normal") # type: ignore
+    canvas.grid(column=2, row=0, sticky="NSWE")
+    
+    for file in FileList:
+        lb.insert(tk.END, file.FileName)
+    
     tk.mainloop()
 
 if __name__ == "__main__":
