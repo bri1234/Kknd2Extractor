@@ -147,7 +147,7 @@ def Main() -> None:
     global FileList, PhotoImg, ListboxFiles, Progress
 
     containerData, _, _ = compression.UncompressFile("assets/spritesheets/gamesprt.lpk")
-    fileTypeList, _ = container.ReadFileTypeList(containerData)
+    fileTypeList, _ = container.ReadFileTypeList(containerData, "gamesprt.lpk.json")
 
     if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
         raise Exception("Unexpected file type")
@@ -162,7 +162,7 @@ def Main() -> None:
     PhotoImg, ListboxFiles, Progress = BuildGui(window, imgWidth, imgHeight)
     
     for file in FileList:
-        ListboxFiles.insert(tk.END, file.FileName)
+        ListboxFiles.insert(tk.END, f"{file.Index}: {file.FileName}")
     
     tk.mainloop()
 

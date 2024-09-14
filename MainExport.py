@@ -16,7 +16,7 @@ def Main() -> None:
     if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
         raise Exception("Unexpected file type")
 
-    fileList = fileTypeList[0].FileList
+    fileList = fileTypeList[0]
 
     data = infantery.ExportInfantery(fileList)
 
