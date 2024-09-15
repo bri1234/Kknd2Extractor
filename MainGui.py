@@ -24,8 +24,7 @@ def CalculateImageWidthAndHeight(fileList : list[container.ContainerFile]) -> tu
 
     for file in fileList:
         print(f"File {file.FileName}")
-        mobdFile = kkndMobd.MobdFile()
-        mobdFile.ReadAnimations(file.RawData, file.FileOffset)
+        mobdFile = kkndMobd.MobdFile(file)
 
         animationHeight = 0
         for animation in mobdFile.AnimationList:
@@ -88,10 +87,7 @@ def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.Mobd
 def ShowMobdFile(fileIndex : int) -> None:
     global FileList, PhotoImg, ListboxFiles
 
-    file = FileList[fileIndex]
-
-    mobdFile = kkndMobd.MobdFile()
-    mobdFile.ReadAnimations(file.RawData, file.FileOffset)
+    mobdFile = kkndMobd.MobdFile(FileList[fileIndex])
 
     CreateFileAnimationsImage(PhotoImg, mobdFile)
 
@@ -162,7 +158,7 @@ def Main() -> None:
     PhotoImg, ListboxFiles, Progress = BuildGui(window, imgWidth, imgHeight)
     
     for file in FileList:
-        ListboxFiles.insert(tk.END, f"{file.Index}: {file.FileName}")
+        ListboxFiles.insert(tk.END, f"{file.FileNumber}: {file.FileName}")
     
     tk.mainloop()
 

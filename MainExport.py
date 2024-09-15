@@ -21,7 +21,7 @@ def Main() -> None:
     data = infantery.ExportInfantery(fileList)
 
     with open("infantery.json", "w") as file:
-        json.dump(data, file)
+        json.dump(data, file, sort_keys=True, indent=2)
     
 if __name__ == "__main__":
     Main()

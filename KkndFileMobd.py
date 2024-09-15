@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
+from KkndFileContainer import ContainerFile
 
 class ModbPoint:
     """ This class represents one point.
@@ -38,6 +39,14 @@ class MobdPalette:
     def __init__(self) -> None:
         self.Colors = []
 
+    def GetColorsBytearray(self) -> bytearray:
+        b = bytearray()
+
+        for color in self.Colors:
+            b.extend(color.to_bytes(4, "little"))
+
+        return b
+    
     def ReadPalette(self, data : bytearray, palettePosition : int, fileOffset : int) -> None:
 
         self.Colors = []
@@ -180,7 +189,9 @@ class MobdFrame:
     OffsetX : int = 0
     OffsetY : int = 0
 
+    # Points are required for turrets, muzzles and projectile launch offsets.
     PointList : list[ModbPoint]
+
     Palette : MobdPalette
     Image : MobdImage
 
@@ -348,8 +359,11 @@ class MobdFile:
 
     AnimationList : list[MobdAnimation]
 
-    def __init__(self) -> None:
+    def __init__(self, file : ContainerFile | None = None) -> None:
         self.AnimationList = []
+
+        if file is not None:
+            self.ReadAnimations(file.RawData, file.FileOffset)
     
     def ReadAnimations(self, data : bytearray, fileOffset : int) -> None:
         """ Reads animations from a MOBD file.
