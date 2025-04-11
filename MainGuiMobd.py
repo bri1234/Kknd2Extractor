@@ -31,7 +31,7 @@ import threading
 
 import KkndFileCompression as compression
 import KkndFileContainer as container
-import KkndFileMobd as kkndMobd
+import KkndFileMobd as mobd
 
 FileList : list[container.ContainerFile]
 PhotoImg : tk.PhotoImage
@@ -47,7 +47,7 @@ def CalculateImageWidthAndHeight(fileList : list[container.ContainerFile]) -> tu
 
     for file in fileList:
         print(f"File {file.FileName}")
-        mobdFile = kkndMobd.MobdFile(file)
+        mobdFile = mobd.MobdFile(file)
 
         animationHeight = 0
         for animation in mobdFile.AnimationList:
@@ -60,27 +60,22 @@ def CalculateImageWidthAndHeight(fileList : list[container.ContainerFile]) -> tu
 
     return width, height
 
-def DrawImage(photoImg : tk.PhotoImage, img : kkndMobd.MobdImage,  colors : list[int],
-            offX : int, offY : int) -> None:
+def DrawFrame(photoImg : tk.PhotoImage, frame : mobd.MobdFrame, offX : int, offY : int) -> None:
 
+    data = frame.RenderImage()
     dataStr : list[str] = []
 
-    for y in range(img.Height):
+    for row in range(frame.Image.Height):
         dataStr.append("{")
 
-        for x in range(img.Width):
-            pixel = img.GetPixel(x, y)
-            if pixel >= 0 and pixel < len(colors):
-                color = colors[pixel]
-                dataStr.append(f"#{color & 0xFFFFFF:06X}")
-            else:
-                dataStr.append("#000000")
+        for column in range(frame.Image.Width):
+            dataStr.append(f"#{data[column, row]:06X}")
 
         dataStr.append("}")
 
     photoImg.put( " ".join(dataStr), ( offX, offY ) )
 
-def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.MobdFile) -> None:
+def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : mobd.MobdFile) -> None:
     global Progress
 
     Progress.set(0)
@@ -95,10 +90,9 @@ def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.Mobd
         offX = 0
         imgHeight = 0
         for frame in animation.FrameList:
-            palette = frame.ColorPalette
             img = frame.Image
 
-            DrawImage(photoImg, img, palette.Colors, offX, offY)
+            DrawFrame(photoImg, frame, offX, offY)
 
             offX += img.Width
             imgHeight = max(imgHeight, img.Height)
@@ -110,7 +104,7 @@ def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.Mobd
 def ShowMobdFile(fileIndex : int) -> None:
     global FileList, PhotoImg, ListboxFiles
 
-    mobdFile = kkndMobd.MobdFile(FileList[fileIndex])
+    mobdFile = mobd.MobdFile(FileList[fileIndex])
 
     CreateFileAnimationsImage(PhotoImg, mobdFile)
 

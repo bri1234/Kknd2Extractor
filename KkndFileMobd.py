@@ -316,11 +316,11 @@ class MobdFrame:
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)
 
-    def RenderImage(self) -> npt.ArrayLike:
+    def RenderImage(self) -> npt.NDArray[np.uint32]:
         """ Renders the image as RGB data.
 
         Returns:
-            npt.ArrayLike: The image RGB data in a 2D array [Width, Height].
+            npt.NDArray[np.uint32]: The image RGB data in a 2D array [Width, Height].
         """
 
         img = self.Image
@@ -328,7 +328,7 @@ class MobdFrame:
         pixels = np.zeros((img.Width, img.Height), np.uint32)
 
         for row in range(img.Height):
-            for column in range(img.Height):
+            for column in range(img.Width):
                 pixel = img.GetPixel(column, row)
 
                 if pixel >= 0 and pixel < len(colors):
