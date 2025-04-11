@@ -73,7 +73,23 @@ class MapdColorPalette:
             color24 = (red << 16) | (green << 8) | blue
             self.Colors.append(color24)
 
+class MapdTile:
+    """ This class stores the pixel data of a tile.
+    """
+
+    # The image pixel data. A Pixel is an index in the color palette.
+    Pixels : bytearray
+
+    def __init__(self) -> None:
+        self.Pixels = bytearray()
+
+    def ReadTile(self, fileData : bytearray, tileOffset : int, tileWidth : int, tileHeight : int) -> None:
+        self.Pixels = fileData[tileOffset : tileOffset + tileWidth * tileHeight]
+
 class MapdLayer:
+    """ This class stores the tiles of a layer.
+        A layer consists of small tiles.
+    """
 
     TileWidthInPixels : int = 0
     TileHeightInPixels : int = 0
@@ -82,11 +98,62 @@ class MapdLayer:
     MapWidthInPixels : int = 0
     MapHeightInPixels : int = 0
 
+    # The tiles that build the layer.
+    TileMap : list[int]
+
+    # List of tile data.
+    TileList : dict[int, MapdTile]
+
     def __init__(self) -> None:
-        pass
+        self.TileMap : list[int] = []
+        self.TileList : dict[int, MapdTile] = {}
 
-    def ReadLayer(self, fileData : bytearray, layerOffset : int) -> None:
+    def ReadLayer(self, fileData : bytearray, fileOffset : int, layerOffset : int) -> None:
+        """ Reads the layer data.
 
+        Args:
+            fileData (bytearray): The raw file data.
+            fileOffset (int): The offset of the file in the container.
+            layerOffset (int): The offset of the layer in the file.
+        """
+        self.__ReadLayerHeader(fileData, layerOffset)
+        self.__ReadLayerTiles(fileData, fileOffset, layerOffset + 32)
+
+    def __ReadLayerTiles(self, fileData : bytearray, fileOffset : int, tilesOffset : int) -> None:
+        """ Read all tiles of the layer.
+
+        Args:
+            fileData (bytearray): _description_
+            fileOffset (int): _description_
+            tilesOffset (int): _description_
+        """
+        numberOfTiles = self.MapWidthInTiles * self.MapHeightInTiles
+        pos = tilesOffset
+
+        self.TileMap = []
+        self.TileList = {}
+
+        for _ in range(numberOfTiles):
+            tileOffset = GetUInt32LE(fileData, pos) & 0xFFFFFFFC
+            pos += 4
+
+            self.TileMap.append(tileOffset)
+
+            if tileOffset == 0:
+                continue
+
+            if tileOffset not in self.TileList:
+                tile = MapdTile()
+                tile.ReadTile(fileData, tileOffset - fileOffset, self.TileWidthInPixels, self.TileHeightInPixels)
+                self.TileList[tileOffset] = tile
+
+    def __ReadLayerHeader(self, fileData : bytearray, layerOffset : int) -> None:
+        """ Reads the layer header information.
+
+        Args:
+            fileData (bytearray): The raw file data.
+            layerOffset (int): The offset of the layer in the file.
+        """
         magicStr = GetStringReverse(fileData, layerOffset, 4)
         if magicStr != "SCRL":
             raise Exception(f"Not a MAPD layer. Missing 'SCRL'.")
@@ -108,7 +175,10 @@ class MapdFile:
     """ This class stores the color palette and the layers for the map.
     """
 
+    # a list with the layers
     LayerList : list[MapdLayer]
+
+    # the color palette of the layers
     ColorPalette : MapdColorPalette
 
     def __init__(self) -> None:
@@ -143,30 +213,36 @@ class MapdFile:
         # read the layers
         for idx in range(numberOfLayers):
             layer = MapdLayer()
-            layer.ReadLayer(fileData, layerOffsetList[idx] - fileOffset)
+            layer.ReadLayer(fileData, fileOffset, layerOffsetList[idx] - fileOffset)
             self.LayerList.append(layer)
 
-def __Test() -> None:
-    fileName = "assets/multiplayermap/mlti_01.lpm"
+def ReadMaps(fileName : str) -> list[MapdFile]:
+    """ Reads all MAPD files from a KKND2 asset file container.
+
+    Args:
+        fileName (str): The name of the KNND2 asset file.
+
+    Returns:
+        list[MapdFile]: List of MAPD files.
+    """
+
     data, _, _ = UncompressFile(fileName)
+    mapdFileList : list[MapdFile] = []
 
     fileTypeList, _ = ReadFileTypeList(data)
     for fileType in fileTypeList:
         if fileType.FileType != "MAPD":
             continue
         
-        idx = 1
         for file in fileType.FileList:
+            mapdFile = MapdFile()
+            mapdFile.ReadMapdFile(file.RawData, file.FileOffset)
+            mapdFileList.append(mapdFile)
 
-            # with open(f"test{idx}.mapd", "wb") as f:
-            #     f.write(file.RawData)
+    return mapdFileList
 
-            mapd = MapdFile()
-            mapd.ReadMapdFile(file.RawData, file.FileOffset)
-
-            idx += 1
-
-
+def __Test() -> None:
+    mapdFiles = ReadMaps("assets/multiplayermap/mlti_01.lpm")
 
 if __name__ == "__main__":
     __Test()
