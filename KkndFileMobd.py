@@ -23,6 +23,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
+import numpy as np
+import numpy.typing as npt
 from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
 from KkndFileContainer import ContainerFile
 
@@ -126,7 +128,7 @@ class MobdImage:
             y (int): Pixel row in the image.
 
         Returns:
-            int: The pixel. (= Index in the color palette.)
+            int: The pixel = Index in the color palette.
         """
         return self.Pixels[column + row * self.Width]
     
@@ -263,7 +265,7 @@ class MobdImage:
         return flippedPixels
 
 class MobdFrame:
-    """ This is one frame of the animation.
+    """ This is one frame of the animation. This is an image with its color palette.
     """
 
     # The sprite offset from the center point of the image:
@@ -314,6 +316,29 @@ class MobdFrame:
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)
 
+    def RenderImage(self) -> npt.ArrayLike:
+        """ Renders the image as RGB data.
+
+        Returns:
+            npt.ArrayLike: The image RGB data in a 2D array [Width, Height].
+        """
+
+        img = self.Image
+        colors = self.ColorPalette.Colors
+        pixels = np.zeros((img.Width, img.Height), np.uint32)
+
+        for row in range(img.Height):
+            for column in range(img.Height):
+                pixel = img.GetPixel(column, row)
+
+                if pixel >= 0 and pixel < len(colors):
+                    pixelColor = colors[pixel]
+                    pixels[column, row] = pixelColor
+                else:
+                    pixels[column, row] = 0
+
+        return pixels
+    
     @staticmethod
     def __ReadImageAndColorPalette(data : bytearray, position : int, fileOffset : int) -> tuple[MobdImage, MobdColorPalette]:
         """ Reads the image and the color palette from the raw data.
