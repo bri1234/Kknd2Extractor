@@ -23,6 +23,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
+import numpy as np
+import numpy.typing as npt
 from KkndFileCompression import UncompressFile
 from KkndFileContainer import ReadFileTypeList
 from DataBuffer import GetStringReverse, GetUInt32LE, GetUInt16LE
@@ -80,10 +82,46 @@ class MapdTile:
     # The image pixel data. A Pixel is an index in the color palette.
     Pixels : bytearray
 
-    def __init__(self) -> None:
-        self.Pixels = bytearray()
+    # the tile width in pixels
+    Width : int
 
+    # the tile height in pixels
+    Height : int
+
+    def __init__(self, widthInPixels : int = 0, heightInPixels : int = 0) -> None:
+        """ Creates a new tile.
+
+        Args:
+            width (int, optional): The tile width in pixels. Defaults to 0.
+            height (int, optional): The tile height in pixels. Defaults to 0.
+        """
+        self.Pixels = bytearray(widthInPixels * heightInPixels)
+        self.Width = widthInPixels
+        self.Height = heightInPixels
+
+    def GetPixel(self, column : int, row : int) -> int:
+        """ Returns one pixel.
+
+        Args:
+            x (int): Pixel column in the image.
+            y (int): Pixel row in the image.
+
+        Returns:
+            int: The pixel = Index in the color palette.
+        """
+        return self.Pixels[column + row * self.Width]
+    
     def ReadTile(self, fileData : bytearray, tileOffset : int, tileWidth : int, tileHeight : int) -> None:
+        """ Reads the tile from raw data.
+
+        Args:
+            fileData (bytearray): The raw file data.
+            tileOffset (int): The tile offset in the file data.
+            tileWidth (int): The tile width in pixels.
+            tileHeight (int): The tile height in pixels.
+        """
+        self.Width = tileWidth
+        self.Height = tileHeight
         self.Pixels = fileData[tileOffset : tileOffset + tileWidth * tileHeight]
 
 class MapdLayer:
@@ -91,12 +129,23 @@ class MapdLayer:
         A layer consists of small tiles.
     """
 
-    TileWidthInPixels : int = 0
-    TileHeightInPixels : int = 0
-    MapWidthInTiles : int = 0
-    MapHeightInTiles : int = 0
-    MapWidthInPixels : int = 0
-    MapHeightInPixels : int = 0
+    # Tile width in pixels
+    TileWidthInPixels : int
+
+    # Tile height in pixels
+    TileHeightInPixels : int
+
+    # Map and Layer width in tiles
+    MapWidthInTiles : int
+
+    # Map and Layer height in tiles
+    MapHeightInTiles : int
+
+    # Map and Layer width in pixels
+    MapWidthInPixels : int
+
+    # Map and Layer height in pixels
+    MapHeightInPixels : int
 
     # The tiles that build the layer.
     TileMap : list[int]
@@ -108,6 +157,26 @@ class MapdLayer:
         self.TileMap : list[int] = []
         self.TileList : dict[int, MapdTile] = {}
 
+        self.TileWidthInPixels = 0
+        self.TileHeightInPixels = 0
+        self.MapWidthInTiles = 0
+        self.MapHeightInTiles = 0
+        self.MapWidthInPixels = 0
+        self.MapHeightInPixels = 0
+
+    def GetTile(self, tileColumn : int, tileRow : int) -> MapdTile:
+        """ Returns the tile at the position.
+
+        Args:
+            tileColumn (int): The tile column.
+            tileRow (int): The tile row.
+
+        Returns:
+            MapdTile: The tile at the position.
+        """
+        tileId = self.TileMap[tileColumn + tileRow * self.MapWidthInTiles]
+        return self.TileList[tileId]
+    
     def ReadLayer(self, fileData : bytearray, fileOffset : int, layerOffset : int) -> None:
         """ Reads the layer data.
 
@@ -133,14 +202,14 @@ class MapdLayer:
         self.TileMap = []
         self.TileList = {}
 
+        # add empty tile
+        self.TileList[0] = MapdTile(self.TileWidthInPixels, self.TileHeightInPixels)
+
         for _ in range(numberOfTiles):
             tileOffset = GetUInt32LE(fileData, pos) & 0xFFFFFFFC
             pos += 4
 
             self.TileMap.append(tileOffset)
-
-            if tileOffset == 0:
-                continue
 
             if tileOffset not in self.TileList:
                 tile = MapdTile()
@@ -170,6 +239,28 @@ class MapdLayer:
 
         if self.MapHeightInPixels != self.TileHeightInPixels * self.MapHeightInTiles:
             raise Exception(f"Error map height is invalid!")
+        
+    def RenderImage(self, colorPalette : MapdColorPalette) -> npt.ArrayLike:
+        """ Renders the layer as RGB data.
+
+        Returns:
+            npt.ArrayLike: The layer RGB data in a 2D array [Width, Height].
+        """
+
+        colors = colorPalette.Colors
+        pixels = np.zeros((self.MapWidthInPixels, self.MapHeightInPixels), np.uint32)
+
+        for row in range(img.Height):
+            for column in range(img.Height):
+                pixel = img.GetPixel(column, row)
+
+                if pixel >= 0 and pixel < len(colors):
+                    pixelColor = colors[pixel]
+                    pixels[column, row] = pixelColor
+                else:
+                    pixels[column, row] = 0
+
+        return pixels
 
 class MapdFile:
     """ This class stores the color palette and the layers for the map.
