@@ -128,10 +128,16 @@ if __name__ == "__main__":
     # ShowFileContent("assets/spritesheets/gamesprt.lpk")
     # ShowFileContent("assets/spritesheets/gluesprt.lpk")
 
+    # Multiplayer Map
+    ShowFileContent("assets/multiplayermap/mlti_01.lpm")
+
+    # Tile sets
+    ShowFileContent("assets/multiplayermap/mlti_01.lpm")
+
     # ExportFile("assets/spritesheets/gluesprt.lpk", 2)
     # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
 
-    TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
+    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
     # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 52)
     # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD")
     # TestMobdDir("assets", ".lpk")

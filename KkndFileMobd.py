@@ -1,4 +1,27 @@
-# -*- coding: utf-8 -*-
+"""
+
+Copyright (C) 2025  Torsten Brischalle
+email: torsten@brischalle.de
+web: http://www.aaabbb.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+"""
 
 from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
 from KkndFileContainer import ContainerFile
@@ -32,7 +55,9 @@ class ModbPoint:
 
         return position + 16
 
-class MobdPalette:
+class MobdColorPalette:
+    """ This class stores the color palette.
+    """
 
     Colors : list[int]
 
@@ -40,6 +65,11 @@ class MobdPalette:
         self.Colors = []
 
     def GetColorsBytearray(self) -> bytearray:
+        """ Converts the colors into a byte array.
+
+        Returns:
+            bytearray: The colors as little endian byte array.
+        """
         b = bytearray()
 
         for color in self.Colors:
@@ -47,7 +77,13 @@ class MobdPalette:
 
         return b
     
-    def ReadPalette(self, data : bytearray, palettePosition : int, fileOffset : int) -> None:
+    def ReadPalette(self, data : bytearray, palettePosition : int) -> None:
+        """ Reads the color palette from the KKN2 data and stores it internally as a list of RGB values.
+
+        Args:
+            data (bytearray): The raw KKND2 data.
+            palettePosition (int): The position of the color palette in the data buffer.
+        """
 
         self.Colors = []
         numColors = GetUInt16LE(data, palettePosition + 12)
@@ -65,18 +101,42 @@ class MobdPalette:
             self.Colors.append(color24)
 
 class MobdImage:
+    """ This class stores the pixel data of an image.
+        The image uses an indexed color palette.
+    """
 
+    # The image width in pixels.
     Width : int = 0
+
+    # The image height in pixels.
     Height : int = 0
+
+    # The image pixel data. A Pixel is an index in the color palette.
     Pixels : bytearray
 
     def __init__(self) -> None:
         self.Pixels = bytearray()
 
-    def GetPixel(self, x : int, y : int) -> int:
-        return self.Pixels[x + y * self.Width]
+    def GetPixel(self, column : int, row : int) -> int:
+        """ Returns one pixel.
+
+        Args:
+            x (int): Pixel column in the image.
+            y (int): Pixel row in the image.
+
+        Returns:
+            int: The pixel. (= Index in the color palette.)
+        """
+        return self.Pixels[column + row * self.Width]
     
     def ReadImage(self, data : bytearray, imagePosition : int, flags : int) -> None:
+        """ Read the image from the raw data.
+
+        Args:
+            data (bytearray): The raw data.
+            imagePosition (int): The image position in the data buffer.
+            flags (int): Image flags read from the raw data.
+        """
         self.Pixels = bytearray()
 
         self.Width = GetInt32LE(data, imagePosition + 0)
@@ -89,15 +149,27 @@ class MobdImage:
         pixelDataPosition = imagePosition + 8
 
         if isCompressed:
-            self.Pixels = MobdImage.Decompress(data, pixelDataPosition, self.Width, self.Height, has256Colors)
+            self.Pixels = MobdImage.__DecompressImageData(data, pixelDataPosition, self.Width, self.Height, has256Colors)
         else:
             self.Pixels = data[pixelDataPosition : pixelDataPosition + self.Width * self.Height]
 
         if isFlipped:
-            self.Pixels = MobdImage.FlipPixels(self.Pixels, self.Width, self.Height)
+            self.Pixels = MobdImage.__FlipImagePixels(self.Pixels, self.Width, self.Height)
 
     @staticmethod
-    def Decompress(data : bytearray, pixelDataPosition : int, width : int, height : int, has256Colors : bool) -> bytearray:
+    def __DecompressImageData(data : bytearray, pixelDataPosition : int, width : int, height : int, has256Colors : bool) -> bytearray:
+        """ Decompress the image data.
+
+        Args:
+            data (bytearray): The raw image data.
+            pixelDataPosition (int): The position of the raw image data in the data buffer.
+            width (int): The image width in pixels.
+            height (int): _The image height in pixels.
+            has256Colors (bool): True if the image has 256 colors.
+
+        Returns:
+            bytearray: The decompressed image data.
+        """
 
         size = width * height
         pixels = bytearray()
@@ -167,7 +239,17 @@ class MobdImage:
         return pixels
     
     @staticmethod
-    def FlipPixels(pixels : bytearray, width : int, height : int) -> bytearray:
+    def __FlipImagePixels(pixels : bytearray, width : int, height : int) -> bytearray:
+        """ Flips the image pixels left <-> right.
+
+        Args:
+            pixels (bytearray): The pixel array.
+            width (int): The image width in pixels.
+            height (int): The image height in pixels.
+
+        Returns:
+            bytearray: The flipped pixel data.
+        """
 
         flippedPixels = bytearray()
 
@@ -192,12 +274,15 @@ class MobdFrame:
     # Points are required for turrets, muzzles and projectile launch offsets.
     PointList : list[ModbPoint]
 
-    Palette : MobdPalette
+    # The image colors.
+    Palette : MobdColorPalette
+
+    # The image pixel data.
     Image : MobdImage
 
     def __init__(self) -> None:
         self.PointList = []
-        self.Palette = MobdPalette()
+        self.Palette = MobdColorPalette()
         self.Image = MobdImage()
     
     def ReadFrame(self, data : bytearray, framePosition : int, fileOffset : int) -> None:
@@ -223,13 +308,23 @@ class MobdFrame:
             self.PointList = MobdFrame.__ReadPointList(data, pointListOffset - fileOffset)
 
         if renderFlagsOffset > 0:
-            self.Image, self.Palette = MobdFrame.__ReadRenderFlags(data, renderFlagsOffset - fileOffset, fileOffset)
+            self.Image, self.Palette = MobdFrame.__ReadImageAndColorPalette(data, renderFlagsOffset - fileOffset, fileOffset)
 
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)
 
     @staticmethod
-    def __ReadRenderFlags(data : bytearray, position : int, fileOffset : int) -> tuple[MobdImage, MobdPalette]:
+    def __ReadImageAndColorPalette(data : bytearray, position : int, fileOffset : int) -> tuple[MobdImage, MobdColorPalette]:
+        """ Reads the image and the color palette from the raw data.
+
+        Args:
+            data (bytearray): The raw data buffer.
+            position (int): The position of the image and color palette in the raw data buffer.
+            fileOffset (int): The offset of the image file in the file container.
+
+        Returns:
+            tuple[MobdImage, MobdPalette]: The image and the color palette.
+        """
         frameType = GetStringReverse(data, position + 0, 4)
         if frameType != "SPNS" and frameType != "SPRC":
             raise Exception(f"Invalid frame format: {frameType}")
@@ -238,8 +333,8 @@ class MobdFrame:
         paletteOffset = GetUInt32LE(data, position + 8)
         imageOffset = GetUInt32LE(data, position + 12)
 
-        palette = MobdPalette()
-        palette.ReadPalette(data, paletteOffset - fileOffset, fileOffset)
+        palette = MobdColorPalette()
+        palette.ReadPalette(data, paletteOffset - fileOffset)
 
         image = MobdImage()
         image.ReadImage(data, imageOffset - fileOffset, flags)
@@ -248,6 +343,15 @@ class MobdFrame:
     
     @staticmethod
     def __ReadPointList(data : bytearray, position : int) -> list[ModbPoint]:
+        """ Reads a list of points from the raw data.
+
+        Args:
+            data (bytearray): The raw data buffer.
+            position (int): The position of the pointlist in the raw data buffer.
+
+        Returns:
+            list[ModbPoint]: The pointlist read from the raw data.
+        """
         pointList : list[ModbPoint] = []
 
         while True:
@@ -286,6 +390,11 @@ class MobdAnimation:
         self.AnimationNumber = animationNumber
     
     def GetMaxWidthAndHeight(self) -> tuple[int, int]:
+        """ Calculates the maximum width and height of the images in the animation.
+
+        Returns:
+            tuple[int, int]: Maximum width and height in pixels.
+        """
         width = 0
         height = 0
 

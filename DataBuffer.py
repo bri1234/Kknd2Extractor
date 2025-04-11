@@ -1,30 +1,29 @@
-# -*- coding: utf-8 -*-
+"""
+
+Copyright (C) 2025  Torsten Brischalle
+email: torsten@brischalle.de
+web: http://www.aaabbb.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+"""
 
 from io import BufferedReader
-import struct
-
-def ReadInt32LE(file : BufferedReader) -> int:
-    """ Reads a 32 bit signed integer (little endian) from a file.
-
-    Args:
-        file (BufferedReader): the file to be read from.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack("<i", file.read(4))[0]
-
-def ReadInt32BE(file : BufferedReader) -> int:
-    """ Reads a 32 bit signed integer (big endian) from a file.
-
-    Args:
-        file (BufferedReader): the file to be read from.
-        bigEndian (bool, optional): Big endian yes or no. Defaults to False.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack(">i", file.read(4))[0]
 
 def ReadUInt32LE(file : BufferedReader) -> int:
     """ Reads a 32 bit unsigned integer (little endian) from a file.
@@ -36,7 +35,7 @@ def ReadUInt32LE(file : BufferedReader) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack("<I", file.read(4))[0]
+    return int.from_bytes(file.read(4), byteorder='little', signed=False)
 
 def ReadUInt32BE(file : BufferedReader) -> int:
     """ Reads a 32 bit unsigned integer (big endian) from a file.
@@ -48,19 +47,7 @@ def ReadUInt32BE(file : BufferedReader) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack(">I", file.read(4))[0]
-
-def GetInt8(data : bytearray, index : int) -> int:
-    """ Reads a 8 bit signed integer (little endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from("=b", data, index)[0]
+    return int.from_bytes(file.read(4), byteorder='big', signed=False)
 
 def GetUInt8(data : bytearray, index : int) -> int:
     """ Reads a 8 bit unsigned integer (little endian) from a file.
@@ -72,31 +59,7 @@ def GetUInt8(data : bytearray, index : int) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack_from("=B", data, index)[0]
-
-def GetInt16LE(data : bytearray, index : int) -> int:
-    """ Reads a 16 bit signed integer (little endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from("<h", data, index)[0]
-
-def GetInt16BE(data : bytearray, index : int) -> int:
-    """ Reads a 16 bit signed integer (big endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from(">h", data, index)[0]
+    return int.from_bytes(data[index : index + 1], signed=False)
 
 def GetUInt16LE(data : bytearray, index : int) -> int:
     """ Reads a 16 bit unsigned integer (little endian) from a file.
@@ -108,19 +71,7 @@ def GetUInt16LE(data : bytearray, index : int) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack_from("<H", data, index)[0]
-
-def GetUInt16BE(data : bytearray, index : int) -> int:
-    """ Reads a 16 bit unsigned integer (big endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from(">H", data, index)[0]
+    return int.from_bytes(data[index : index + 2], byteorder='little', signed=False)
 
 def GetInt32LE(data : bytearray, index : int) -> int:
     """ Reads a 32 bit signed integer (little endian) from a file.
@@ -132,19 +83,7 @@ def GetInt32LE(data : bytearray, index : int) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack_from("<i", data, index)[0]
-
-def GetInt32BE(data : bytearray, index : int) -> int:
-    """ Reads a 32 bit signed integer (big endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from(">i", data, index)[0]
+    return int.from_bytes(data[index : index + 4], byteorder='little', signed=True)
 
 def GetUInt32LE(data : bytearray, index : int) -> int:
     """ Reads a 32 bit unsigned integer (little endian) from a file.
@@ -156,19 +95,7 @@ def GetUInt32LE(data : bytearray, index : int) -> int:
     Returns:
         int: The number.
     """
-    return struct.unpack_from("<I", data, index)[0]
-
-def GetUInt32BE(data : bytearray, index : int) -> int:
-    """ Reads a 32 bit unsigned integer (big endian) from a file.
-
-    Args:
-        data (bytearray): The data buffer.
-        index (int): The index where the integer starts.
-
-    Returns:
-        int: The number.
-    """
-    return struct.unpack_from(">I", data, index)[0]
+    return int.from_bytes(data[index : index + 4], byteorder='little', signed=False)
 
 def GetString(data : bytearray, index : int, length : int) -> str:
     """ Reads a string from a data buffer.
