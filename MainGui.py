@@ -95,7 +95,7 @@ def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : kkndMobd.Mobd
         offX = 0
         imgHeight = 0
         for frame in animation.FrameList:
-            palette = frame.Palette
+            palette = frame.ColorPalette
             img = frame.Image
 
             DrawImage(photoImg, img, palette.Colors, offX, offY)

@@ -33,7 +33,7 @@ from KkndFileMobd import MobdFrame, MobdFile, MobdAnimation
 def ExportFrame(frame : MobdFrame) -> dict[str, Any]:
     
     img = base64.b85encode(zlib.compress(frame.Image.Pixels)).decode("ASCII")
-    colors = base64.b85encode(zlib.compress(frame.Palette.GetColorsBytearray())).decode("ASCII")
+    colors = base64.b85encode(zlib.compress(frame.ColorPalette.GetColorsBytearray())).decode("ASCII")
 
     return {
         "Width": frame.Image.Width,

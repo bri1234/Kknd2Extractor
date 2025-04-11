@@ -59,6 +59,7 @@ class MobdColorPalette:
     """ This class stores the color palette.
     """
 
+    # 4 byte RGB color
     Colors : list[int]
 
     def __init__(self) -> None:
@@ -86,10 +87,10 @@ class MobdColorPalette:
         """
 
         self.Colors = []
-        numColors = GetUInt16LE(data, palettePosition + 12)
+        numberOfColors = GetUInt16LE(data, palettePosition + 12)
         colorPosition = palettePosition + 14
 
-        for _ in range(numColors):
+        for _ in range(numberOfColors):
             color16 = GetUInt16LE(data, colorPosition)
             colorPosition += 2
 
@@ -275,14 +276,14 @@ class MobdFrame:
     PointList : list[ModbPoint]
 
     # The image colors.
-    Palette : MobdColorPalette
+    ColorPalette : MobdColorPalette
 
     # The image pixel data.
     Image : MobdImage
 
     def __init__(self) -> None:
         self.PointList = []
-        self.Palette = MobdColorPalette()
+        self.ColorPalette = MobdColorPalette()
         self.Image = MobdImage()
     
     def ReadFrame(self, data : bytearray, framePosition : int, fileOffset : int) -> None:
@@ -308,7 +309,7 @@ class MobdFrame:
             self.PointList = MobdFrame.__ReadPointList(data, pointListOffset - fileOffset)
 
         if renderFlagsOffset > 0:
-            self.Image, self.Palette = MobdFrame.__ReadImageAndColorPalette(data, renderFlagsOffset - fileOffset, fileOffset)
+            self.Image, self.ColorPalette = MobdFrame.__ReadImageAndColorPalette(data, renderFlagsOffset - fileOffset, fileOffset)
 
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)

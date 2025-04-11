@@ -16,6 +16,13 @@ from pathlib import Path
 #   ".mpk"  Matrix set (destroyable map part, tile replacements)
 
 def ShowFileContent(fileName : str, contentJsonFileName : str | None = None) -> None:
+    """ Shows the content of a KKND2 asset file.#
+
+    Args:
+        fileName (str): The KKND2 asset file and path.
+        contentJsonFileName (str | None, optional): A JSON file with additional informations about the content of the asset file. Defaults to None.
+    """
+
     print("********************************************************************************")
     print(f"Read file {fileName}")
 
@@ -33,6 +40,12 @@ def ShowFileContent(fileName : str, contentJsonFileName : str | None = None) -> 
             print(f"    File: index = {file.Index} file offset = {file.FileOffset} file length = {file.FileLength} name = {file.FileName}")
 
 def ShowContentOfFilesInDirectory(directoryPath : str, fileEnding : str | None = None) -> None:
+    """ Shows the content of all KKND2 asset files in a directory.
+
+    Args:
+        directoryPath (str): The directory.
+        fileEnding (str | None, optional): Show only the content of files with this file name ending. Defaults to None.
+    """
 
     for dir in os.scandir(directoryPath):
         if not dir.is_dir():
@@ -49,6 +62,13 @@ def ShowContentOfFilesInDirectory(directoryPath : str, fileEnding : str | None =
             ShowFileContent(file.path)
 
 def ExportFile(containerFileName : str, fileTypeIndex : int, fileIndex : int) -> None:
+    """ Exports the raw data of a file in the KKND2 asset container.
+
+    Args:
+        containerFileName (str): The name and path of the KKND2 asset file.
+        fileTypeIndex (int): Export the file with this file type index.
+        fileIndex (int): Export the file with this index.
+    """
     containerData, _, _ = UncompressFile(containerFileName)
     fileTypeList, _ = ReadFileTypeList(containerData)
     file = fileTypeList[fileTypeIndex].GetFile(fileIndex)
@@ -57,6 +77,13 @@ def ExportFile(containerFileName : str, fileTypeIndex : int, fileIndex : int) ->
         f.write(file.RawData)
 
 def ExportContainerFiles(containerFileName : str, fileTypeStr : str, outDir : str) -> None:
+    """ Export all files of a KKND2 asset file container.
+
+    Args:
+        containerFileName (str): The name and path of the KKND2 asset file.
+        fileTypeStr (str): Export the files with this file type.
+        outDir (str): The output directory.
+    """
     containerData, _, _ = UncompressFile(containerFileName)
     fileTypeList, _ = ReadFileTypeList(containerData)
 
@@ -69,7 +96,12 @@ def ExportContainerFiles(containerFileName : str, fileTypeStr : str, outDir : st
                 f.write(file.RawData)
 
 def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
+    """ Export all MOBD files to a directory.
 
+    Args:
+        directoryPath (str): The directory with the MOBD fils.
+        outDir (str): The output directory.
+    """
     for dir in os.scandir(directoryPath):
         if not dir.is_dir():
             continue
@@ -78,14 +110,26 @@ def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
             if (not file.is_file()) or (not file.path.endswith(".lpk")):
                 continue
             
-            ExportContainerFiles(file.path, "MOBD", "out")
+            ExportContainerFiles(file.path, "MOBD", outDir)
 
 def TestMobdAnimation(file : ContainerFile) -> None:
+    """ Only for testing: read an animation.
+
+    Args:
+        file (ContainerFile): The container with the animation.
+    """
     print(f"*** FILE Number {file.FileNumber} Index {file.Index} ***")
     mobd = _mobd.MobdFile()
     mobd.ReadAnimations(file.RawData, file.FileOffset)
 
 def TestMobd(containerFileName : str, fileTypeStr : str, fileIndex : int | None = None) -> None:
+    """ Only for testing: read an MOBD File.
+
+    Args:
+        containerFileName (str): The name and path of the KKND2 asset file.
+        fileTypeStr (str): Export the files with this file type.
+        fileIndex (int | None, optional): _description_. Defaults to None.
+    """
     containerData, _, _ = UncompressFile(containerFileName)
     fileTypeList, _ = ReadFileTypeList(containerData)
 
@@ -101,7 +145,12 @@ def TestMobd(containerFileName : str, fileTypeStr : str, fileIndex : int | None 
             break
 
 def TestMobdDir(directoryPath : str, fileEnding : str | None = None) -> None:
+    """ Only for testing: 
 
+    Args:
+        directoryPath (str): _description_
+        fileEnding (str | None, optional): _description_. Defaults to None.
+    """
     for dir in os.scandir(directoryPath):
         if not dir.is_dir():
             continue
@@ -130,11 +179,11 @@ if __name__ == "__main__":
 
     # Multiplayer Map
     ShowFileContent("assets/multiplayermap/mlti_01.lpm")
+    # ShowFileContent("assets/singleplayermap/robo_01.lps")
 
     # Tile sets
-    ShowFileContent("assets/multiplayermap/mlti_01.lpm")
-
     # ExportFile("assets/spritesheets/gluesprt.lpk", 2)
+    # ShowFileContent("assets/spritesheets/gamesprt.lpk")
     # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
 
     # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
