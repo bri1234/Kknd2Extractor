@@ -36,15 +36,22 @@ class FrameMain(wx.Frame):
     """ The main window.
     """
     
-    Map : mapd.MapdFile
-
     def __init__(self):
         super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
 
-        self.Map = mapd.MapdFile()
-
+        self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons("TerrainAttributeIcons.png")
         self.__CreateMenuBar()
         self.__CreateWidgets()
+
+    def __LoadTerrainAttributeIcons(self, fileName : str) -> list[wx.Bitmap]:
+        terrainAttributeIcons = wx.Bitmap(fileName)
+        terrainAttributeIconList : list[wx.Bitmap] = []
+        
+        for idx in range(36):
+            icon = terrainAttributeIcons.GetSubBitmap(wx.Rect(idx * 32, 0, 32, 32))
+            terrainAttributeIconList.append(icon)
+
+        return terrainAttributeIconList
 
     def __CreateWidgets(self) -> None:
         """ Creates the GUI.
@@ -118,20 +125,27 @@ class FrameMain(wx.Frame):
         try:
             with wx.BusyInfo("Please wait, loading ...", self):
                 maps = mapd.ReadMaps(mapFileName)
-                self.Map = maps[0]
-                self.ShowMapFile(self.Map)
+                map = maps[0]
+
+                self.BitmapBottom = FrameMain.RenderBitmapFromLayer(map, 0)
+                self.BitmapTop = FrameMain.RenderBitmapFromLayer(map, 1)
+
+                self.__ImageControl.SetBitmap(bmp)
 
         except Exception as err:
             self.ShowError(str(err))
 
-    def ShowMapFile(self, map : mapd.MapdFile) -> None:
-        """ Draws the bottom layer.
+    @staticmethod
+    def RenderBitmapFromLayer(map : mapd.MapdFile, layerIndex : int) -> wx.Bitmap:
+        """ Renders a bitmap from a layer.
 
         Args:
-            map (mapd.MapdFile): The map file.
-        """
-        layerIndex = 0
+            map (mapd.MapdFile): The map with the layers.
+            layerIndex (int): The index of the layer to render.
 
+        Returns:
+            wx.Bitmap: The rendered bitmap.
+        """
         layer = map.LayerList[layerIndex]
         imageData = map.RenderLayer(layerIndex)
         data = bytearray()
@@ -144,8 +158,12 @@ class FrameMain(wx.Frame):
                 data.append((rgb >> 8) & 0xFF)
                 data.append(rgb & 0xFF)
 
-        bmp = wx.Bitmap.FromBuffer(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
-        self.__ImageControl.SetBitmap(bmp)
+        bitmap = wx.Bitmap.FromBuffer(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
+        return bitmap
+
+    @staticmethod
+    def RenderBitmapFromTerrainAttributes() -> wx.Bitmap:
+        pass
 
 if __name__ == "__main__":
 
