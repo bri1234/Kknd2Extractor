@@ -1,6 +1,6 @@
 # Kknd2Extractor
 
-This python scripts extracts the sprites and sounds from the KKND2 asset files.
+This python scripts are used to extract maps, sprites and sounds from the KKND2 asset files.
 
 Based partly on the following projects:
 
