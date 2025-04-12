@@ -308,7 +308,7 @@ class MapdLayer:
         if self.MapHeightInPixels != self.TileHeightInPixels * self.MapHeightInTiles:
             raise Exception(f"Error map height is invalid!")
         
-    def RenderImage(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
+    def RenderImageUInt32(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
         """ Renders the layer as RGB data.
 
         Returns:
@@ -329,11 +329,8 @@ class MapdLayer:
                     for tilePixelColumn in range(tile.Width):
                         pixel = tile.GetPixel(tilePixelColumn, tilePixelRow)
 
-                        if pixel >= 0 and pixel < len(colors):
-                            pixelColor = colors[pixel]
-                            pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = pixelColor
-                        else:
-                            pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = 0
+                        pixelColor = colors[pixel] if pixel >= 0 and pixel < len(colors) else 0
+                        pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = pixelColor
 
         return pixels
 
@@ -382,6 +379,19 @@ class MapdFile:
             layer.ReadLayer(fileData, fileOffset, layerOffsetList[idx] - fileOffset)
             self.LayerList.append(layer)
 
+            MapdFile.__CheckImage(layer, self.ColorPalette)
+
+    @staticmethod
+    def __CheckImage(layer : MapdLayer, palette : MapdColorPalette) -> None:
+        """ Do some plausebility checks with the image data.
+        """
+        colors = palette.Colors
+
+        for tile in layer.TileList.values():
+            for pixel in tile.Pixels:
+                if pixel < 0 or pixel >= len(colors):
+                    raise Exception("Image invalid pixel data")
+            
     def RenderLayer(self, layerIndex : int) -> npt.NDArray[np.uint32]:
         """ Renders the layer as RGB data.
 
@@ -391,7 +401,7 @@ class MapdFile:
         Returns:
             npt.NDArray[np.uint32]: The layer RGB data in a 2D array [Width, Height].
         """
-        return self.LayerList[layerIndex].RenderImage(self.ColorPalette)
+        return self.LayerList[layerIndex].RenderImageUInt32(self.ColorPalette)
 
 def ReadMaps(fileName : str) -> list[MapdFile]:
     """ Reads all MAPD files from a KKND2 asset file container.

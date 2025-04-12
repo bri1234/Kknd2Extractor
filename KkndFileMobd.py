@@ -316,8 +316,8 @@ class MobdFrame:
         if boxListOffset > 0:
             MobdFrame.__ReadBoxList(data, boxListOffset - fileOffset)
 
-    def RenderImage(self) -> npt.NDArray[np.uint32]:
-        """ Renders the image as RGB data.
+    def RenderImageUInt32(self) -> npt.NDArray[np.uint32]:
+        """ Renders the image as RGB data in a numpy array.
 
         Returns:
             npt.NDArray[np.uint32]: The image RGB data in a 2D array [Width, Height].
@@ -325,19 +325,16 @@ class MobdFrame:
 
         img = self.Image
         colors = self.ColorPalette.Colors
-        pixels = np.zeros((img.Width, img.Height), np.uint32)
+        pixelsOutput = np.zeros((img.Width, img.Height), np.uint32)
 
         for row in range(img.Height):
             for column in range(img.Width):
                 pixel = img.GetPixel(column, row)
+                
+                pixelColor = colors[pixel] if pixel >= 0 and pixel < len(colors) else 0
+                pixelsOutput[column, row] = pixelColor
 
-                if pixel >= 0 and pixel < len(colors):
-                    pixelColor = colors[pixel]
-                    pixels[column, row] = pixelColor
-                else:
-                    pixels[column, row] = 0
-
-        return pixels
+        return pixelsOutput
     
     @staticmethod
     def __ReadImageAndColorPalette(data : bytearray, position : int, fileOffset : int) -> tuple[MobdImage, MobdColorPalette]:
@@ -365,8 +362,19 @@ class MobdFrame:
         image = MobdImage()
         image.ReadImage(data, imageOffset - fileOffset, flags)
 
+        MobdFrame.__CheckImage(image, palette)
+
         return image, palette
     
+    @staticmethod
+    def __CheckImage(image : MobdImage, palette : MobdColorPalette) -> None:
+        """ Do some plausebility checks with the image data.
+        """
+        colors = palette.Colors
+        for pixel in image.Pixels:
+            if pixel < 0 or pixel >= len(colors):
+                raise Exception("Image invalid pixel data")
+
     @staticmethod
     def __ReadPointList(data : bytearray, position : int) -> list[ModbPoint]:
         """ Reads a list of points from the raw data.

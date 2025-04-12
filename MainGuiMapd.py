@@ -1,4 +1,4 @@
-# type: ignore 
+# type: ignore
 
 """
 
@@ -25,11 +25,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-from typing import Any
-import numpy as np
-import numpy.typing as npt
-
-import wx
+import wx 
+import wx.lib.scrolledpanel as wxls
 import threading
 
 import KkndFileMapd as mapd
@@ -42,11 +39,32 @@ class FrameMain(wx.Frame):
     Map : mapd.MapdFile
 
     def __init__(self):
-        super().__init__(None, wx.ID_ANY, "Hello World") 
+        super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
 
         self.Map = mapd.MapdFile()
 
         self.__CreateMenuBar()
+        self.__CreateWidgets()
+
+    def __CreateWidgets(self) -> None:
+        """ Creates the GUI.
+        """
+        panel = wx.Panel(self, wx.ID_ANY)
+
+        scrollPanel = wxls.ScrolledPanel(panel, -1, style = wx.TAB_TRAVERSAL | wx.SUNKEN_BORDER)
+        scrollPanel.SetAutoLayout(1)
+        scrollPanel.SetupScrolling()
+
+        self.__ImageControl = wx.StaticBitmap(scrollPanel, wx.ID_ANY)
+
+        scrollPanelSizer = wx.BoxSizer(wx.VERTICAL)
+        scrollPanelSizer.Add(self.__ImageControl)
+        scrollPanel.SetSizer(scrollPanelSizer)
+
+        panelSizer = wx.BoxSizer(wx.VERTICAL)
+        # panelSizer.AddSpacer(50)
+        panelSizer.Add(scrollPanel, -1, wx.EXPAND)
+        panel.SetSizer(panelSizer)
 
     def __CreateMenuBar(self) -> None:
         """ Creates the main menu.
@@ -66,121 +84,71 @@ class FrameMain(wx.Frame):
 
     def OnOpenMapFile(self, event):
         """ Loads a map file.
-
-        Args:
-            event (_type_): _description_
         """
 
         with wx.FileDialog(self, "Open Map file", wildcard="Multiplayer Map (*.lpm)|*.lpm|Singleplayer Map (*.lps)|*.lps",
-            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+            style = wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
+            
+        threading.Thread(target=self.LoadAndShowMapFile, args=(fileDialog.GetPath(),)).start()
 
-        maps = mapd.ReadMaps(fileDialog.GetPath())
-        self.Map = maps[0]
+    def ShowError(self, err : str) -> None:
+        """ Shows an error message.
+
+        Args:
+            err (Exception): The error message.
+        """
+        dlg = wx.MessageDialog(None, err, "An error occurred ...", wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def OnExit(self, event):
         """ Closes the application
         """
         self.Close(True)
 
+    def LoadAndShowMapFile(self, mapFileName : str) -> None:
+        """ Loads the map file and shows it.
 
-# def DrawLayer(photoImg : tk.PhotoImage, layer : npt.NDArray[np.uint32]) -> None:
-#     global Progress
+        Args:
+            mapFileName (str): The filename of the map.
+        """
+        try:
+            with wx.BusyInfo("Please wait, loading ...", self):
+                maps = mapd.ReadMaps(mapFileName)
+                self.Map = maps[0]
+                self.ShowMapFile(self.Map)
 
-#     width = layer.shape[0]
-#     height = layer.shape[1]
-#     dataStr : list[str] = []
+        except Exception as err:
+            self.ShowError(str(err))
 
-#     Progress.set(0)
+    def ShowMapFile(self, map : mapd.MapdFile) -> None:
+        """ Draws the bottom layer.
 
-#     for row in range(height):
+        Args:
+            map (mapd.MapdFile): The map file.
+        """
+        layerIndex = 0
 
-#         dataStr.append("{")
+        layer = map.LayerList[layerIndex]
+        imageData = map.RenderLayer(layerIndex)
+        data = bytearray()
 
-#         for column in range(width):
-#             dataStr.append(f"#{layer[column, row]:06X}")
+        for row in range(layer.MapHeightInPixels):
+            for column in range(layer.MapWidthInPixels):
+                rgb = imageData[column, row]
 
-#         dataStr.append("}")
-#         Progress.set( int((row + 1) / height * 100.0))
+                data.append((rgb >> 16) % 0xFF)
+                data.append((rgb >> 8) & 0xFF)
+                data.append(rgb & 0xFF)
 
-#     photoImg.put( " ".join(dataStr), ( 0, 0 ) )
-
-# def ShowLayer(layerIndex : int) -> None:
-#     global LayerList, PhotoImg, ListboxLayers
-
-#     PhotoImg.blank()
-#     DrawLayer(PhotoImg, LayerList[layerIndex])
-#     ListboxLayers.configure(state=tk.NORMAL)
-
-# def ListBoxFileSelected(event : Any) -> None:
-#     selection : int = event.widget.curselection()[0]
-#     event.widget.configure(state=tk.DISABLED)
-#     threading.Thread(target=ShowLayer, args=(selection,)).start()
-
-# def BuildGui(window : tk.Tk, imgWidth : int, imgHeigth : int) -> tuple[tk.PhotoImage, tk.Listbox, tk.IntVar]:
-
-#     window.columnconfigure(0, weight=1)
-#     window.columnconfigure(1, weight=1)
-#     window.columnconfigure(2, weight=1000)
-#     window.columnconfigure(3, weight=1)
-#     window.rowconfigure(0, weight=1000)
-#     window.rowconfigure(1, weight=1)
-#     window.rowconfigure(2, weight=1)
-
-#     sbListboxV = tk.Scrollbar(window,orient="vertical")
-#     sbListboxV.grid(column=0, row=0, sticky="NS")
-
-#     listboxFiles = tk.Listbox(window, yscrollcommand = sbListboxV.set)
-#     listboxFiles.grid(column=1, row=0, sticky="NSWE")
-#     listboxFiles.bind("<<ListboxSelect>>", ListBoxFileSelected)
-
-#     sbListboxV.config(command = listboxFiles.yview) # type: ignore
-
-#     sbCanvasV = tk.Scrollbar(window,orient="vertical")
-#     sbCanvasV.grid(column=3, row=0, sticky="NS")
-
-#     sbCanvasH = tk.Scrollbar(window,orient="horizontal")
-#     sbCanvasH.grid(column=2, row=1, sticky="WE")
-
-#     canvas = tk.Canvas(window, bg="black", xscrollcommand=sbCanvasH.set, yscrollcommand=sbCanvasV.set, scrollregion=(0, 0, imgWidth, imgHeigth))
-    
-#     photoImg = tk.PhotoImage(width=imgWidth, height=imgHeigth)
-#     canvas.create_image((photoImg.width() / 2, photoImg.height() / 2), image=photoImg, state="normal") # type: ignore
-    
-#     canvas.grid(column=2, row=0, sticky="NSWE")
-
-#     sbCanvasV.config(command=canvas.yview) # type: ignore
-#     sbCanvasH.config(command=canvas.xview) # type: ignore
-    
-#     progressVar = tk.IntVar()
-#     progress = ttk.Progressbar(window, orient="horizontal", maximum=100, variable=progressVar)
-#     progress.grid(column=2, row=2, sticky="WE")
-
-#     return photoImg, listboxFiles, progressVar
-
-# def Main(fileName : str) -> None:
-#     global LayerList, PhotoImg, ListboxLayers, Progress
-
-#     maps = mapd.ReadMaps(fileName)
-
-#     window = tk.Tk()
-#     PhotoImg, ListboxLayers, Progress = BuildGui(window, 10000, 10000)
-
-#     LayerList.clear()
-#     for idxMap in range(len(maps)):
-#         map = maps[idxMap]
-
-#         for idxLayer in range(len(map.LayerList)):
-#             renderedLayer = map.RenderLayer(idxLayer)
-#             LayerList.append(renderedLayer)
-#             ListboxLayers.insert(tk.END, f"Map {idxMap} Layer {idxLayer}")
-
-#     tk.mainloop()
+        bmp = wx.Bitmap.FromBuffer(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
+        self.__ImageControl.SetBitmap(bmp)
 
 if __name__ == "__main__":
-    
+
     app = wx.App()
 
     frm = FrameMain()

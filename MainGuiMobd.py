@@ -62,7 +62,7 @@ def CalculateImageWidthAndHeight(fileList : list[container.ContainerFile]) -> tu
 
 def DrawFrame(photoImg : tk.PhotoImage, frame : mobd.MobdFrame, offX : int, offY : int) -> None:
 
-    data = frame.RenderImage()
+    data = frame.RenderImageUInt32()
     dataStr : list[str] = []
 
     for row in range(frame.Image.Height):
