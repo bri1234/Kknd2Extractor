@@ -115,10 +115,10 @@ def BuildGui(window : tk.Tk, imgWidth : int, imgHeigth : int) -> tuple[tk.PhotoI
 
     return photoImg, listboxFiles, progressVar
 
-def Main() -> None:
+def Main(fileName : str) -> None:
     global LayerList, PhotoImg, ListboxLayers, Progress
 
-    maps = mapd.ReadMaps("assets/multiplayermap/mlti_12.lpm")
+    maps = mapd.ReadMaps(fileName)
 
     window = tk.Tk()
     PhotoImg, ListboxLayers, Progress = BuildGui(window, 10000, 10000)
@@ -136,5 +136,6 @@ def Main() -> None:
 
 if __name__ == "__main__":
     
-    Main()
+    # Main("assets/multiplayermap/mlti_12.lpm")
+    Main("assets/TestEmpty.lpm")
 

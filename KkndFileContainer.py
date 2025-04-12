@@ -39,7 +39,7 @@ class ContainerFile:
 
     RawData : bytearray     # the raw file data
     
-    FileName : str          # Name of the file (optional)
+    FileName : str          # Name of the file (optional), read from an additional JSON file
     
     def __init__(self, fileNumber : int, index : int, fileType : str) -> None:
         self.FileNumber = fileNumber

@@ -28,6 +28,7 @@ import numpy.typing as npt
 from KkndFileCompression import UncompressFile
 from KkndFileContainer import ReadFileTypeList
 from DataBuffer import GetStringReverse, GetUInt32LE, GetUInt16LE
+from TerrainAttributes import ETerrainAttribute
 
 class MapdColorPalette:
     """ This class stores the color palette.
@@ -124,6 +125,56 @@ class MapdTile:
         self.Height = tileHeight
         self.Pixels = fileData[tileOffset : tileOffset + tileWidth * tileHeight]
 
+class MapdTerrainAttributes:
+    """ This class stores the terrain attributes for the layer tiles.
+    """
+
+    # Map and Layer width in tiles
+    MapWidthInTiles : int
+
+    # Map and Layer height in tiles
+    MapHeightInTiles : int
+
+    # The terrain attributes of the layer tiles
+    TerrainAttributes : list[ETerrainAttribute]
+
+    def __init__(self) -> None:
+        self.MapWidthInTiles = 0
+        self.MapHeightInTiles = 0
+        self.TerrainAttributes = []
+
+    def GetTerrainAttribute(self, column : int, row : int) -> ETerrainAttribute:
+        """ Returns the terrain attribute for a position.
+
+        Args:
+            column (int): The column in number of tiles.
+            row (int): The row in number of tiles.
+
+        Returns:
+            ETerrainAttribute: The terrain attribute.
+        """
+        return self.TerrainAttributes[column + row * self.MapWidthInTiles]
+
+    def ReadTerrainAttributes(self, fileData : bytearray, terrainAttributesOffset : int, mapWidthInTiles : int, mapHeightInTiles : int) -> None:
+        """ Reads the terrain attributes from the raw data.
+
+        Args:
+            fileData (bytearray): The raw file data.
+            terrainAttributesOffset (int): The offset of the terrain data in the raw file data.
+            mapWidthInTiles (int): Layer or map width in number of tiles.
+            mapHeightInTiles (int): Layer or map height in number of tiles.
+        """
+
+        self.MapWidthInTiles = mapWidthInTiles
+        self.MapHeightInTiles = mapHeightInTiles
+        self.TerrainAttributes = []
+
+        numberOfTiles = mapWidthInTiles * mapHeightInTiles
+
+        for idx in range(numberOfTiles):
+            terrainAttribute = fileData[terrainAttributesOffset + idx]
+            self.TerrainAttributes.append( ETerrainAttribute(terrainAttribute) )
+
 class MapdLayer:
     """ This class stores the tiles of a layer.
         A layer consists of small tiles.
@@ -153,9 +204,12 @@ class MapdLayer:
     # List of tile data.
     TileList : dict[int, MapdTile]
 
+    TerrainAttributes : MapdTerrainAttributes
+
     def __init__(self) -> None:
-        self.TileMap : list[int] = []
-        self.TileList : dict[int, MapdTile] = {}
+        self.TileMap = []
+        self.TileList = {}
+        self.TerrainAttributes = MapdTerrainAttributes()
 
         self.TileWidthInPixels = 0
         self.TileHeightInPixels = 0
@@ -186,15 +240,29 @@ class MapdLayer:
             layerOffset (int): The offset of the layer in the file.
         """
         self.__ReadLayerHeader(fileData, layerOffset)
+        self.__ReadTerrainAttributes(fileData, fileOffset, layerOffset)
         self.__ReadLayerTiles(fileData, fileOffset, layerOffset + 32)
+
+    def __ReadTerrainAttributes(self, fileData : bytearray, fileOffset : int, layerOffset : int) -> None:
+        """ Reads the terrain aatributes from the data file.
+
+        Args:
+            fileData (bytearray): The raw file data.
+            fileOffset (int): The offset of the file in the container.
+            layerOffset (int): The offset of the layer in the file.
+        """
+        terrainAttributesOffset = GetUInt32LE(fileData, layerOffset + 28)
+
+        self.TerrainAttributes.ReadTerrainAttributes(fileData, terrainAttributesOffset - fileOffset,
+                                                     self.MapWidthInTiles, self.MapHeightInTiles)
 
     def __ReadLayerTiles(self, fileData : bytearray, fileOffset : int, tilesOffset : int) -> None:
         """ Read all tiles of the layer.
 
         Args:
-            fileData (bytearray): _description_
-            fileOffset (int): _description_
-            tilesOffset (int): _description_
+            fileData (bytearray): The raw file data.
+            fileOffset (int): The offset of the file in the container.
+            tilesOffset (int): The offset of the tile data.
         """
         numberOfTiles = self.MapWidthInTiles * self.MapHeightInTiles
         pos = tilesOffset
@@ -351,7 +419,12 @@ def ReadMaps(fileName : str) -> list[MapdFile]:
     return mapdFileList
 
 def __Test() -> None:
-    ReadMaps("assets/multiplayermap/mlti_01.lpm")
+    # maps = ReadMaps("assets/multiplayermap/mlti_12.lpm")
+    maps = ReadMaps("assets/Test_2_2.lpm")
+
+    layer = maps[0].LayerList[0]
+    print(f"Tile count = {len(layer.TileList)}")
+    print(f"Tile size = {layer.TileWidthInPixels * layer.TileHeightInPixels}")
 
 if __name__ == "__main__":
     __Test()
