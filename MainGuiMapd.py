@@ -1,3 +1,5 @@
+# type: ignore 
+
 """
 
 Copyright (C) 2025  Torsten Brischalle
@@ -27,115 +29,163 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-import tkinter as tk
-from tkinter import ttk
+import wx
 import threading
 
 import KkndFileMapd as mapd
 
-LayerList : list[npt.NDArray[np.uint32]] = []
-PhotoImg : tk.PhotoImage
-ListboxLayers : tk.Listbox
-Progress : tk.IntVar
 
-def SetPixel(img : tk.PhotoImage, x : int, y : int, colorRgb : int) -> None:
-    img.put( f"#{colorRgb & 0xFFFFFF:06X}", ( x, y ) )
-
-def DrawLayer(photoImg : tk.PhotoImage, layer : npt.NDArray[np.uint32]) -> None:
-    global Progress
-
-    width = layer.shape[0]
-    height = layer.shape[1]
-    dataStr : list[str] = []
-
-    Progress.set(0)
-
-    for row in range(height):
-
-        dataStr.append("{")
-
-        for column in range(width):
-            dataStr.append(f"#{layer[column, row]:06X}")
-
-        dataStr.append("}")
-        Progress.set( int((row + 1) / height * 100.0))
-
-    photoImg.put( " ".join(dataStr), ( 0, 0 ) )
-
-def ShowLayer(layerIndex : int) -> None:
-    global LayerList, PhotoImg, ListboxLayers
-
-    PhotoImg.blank()
-    DrawLayer(PhotoImg, LayerList[layerIndex])
-    ListboxLayers.configure(state=tk.NORMAL)
-
-def ListBoxFileSelected(event : Any) -> None:
-    selection : int = event.widget.curselection()[0]
-    event.widget.configure(state=tk.DISABLED)
-    threading.Thread(target=ShowLayer, args=(selection,)).start()
-
-def BuildGui(window : tk.Tk, imgWidth : int, imgHeigth : int) -> tuple[tk.PhotoImage, tk.Listbox, tk.IntVar]:
-
-    window.columnconfigure(0, weight=1)
-    window.columnconfigure(1, weight=1)
-    window.columnconfigure(2, weight=1000)
-    window.columnconfigure(3, weight=1)
-    window.rowconfigure(0, weight=1000)
-    window.rowconfigure(1, weight=1)
-    window.rowconfigure(2, weight=1)
-
-    sbListboxV = tk.Scrollbar(window,orient="vertical")
-    sbListboxV.grid(column=0, row=0, sticky="NS")
-
-    listboxFiles = tk.Listbox(window, yscrollcommand = sbListboxV.set)
-    listboxFiles.grid(column=1, row=0, sticky="NSWE")
-    listboxFiles.bind("<<ListboxSelect>>", ListBoxFileSelected)
-
-    sbListboxV.config(command = listboxFiles.yview) # type: ignore
-
-    sbCanvasV = tk.Scrollbar(window,orient="vertical")
-    sbCanvasV.grid(column=3, row=0, sticky="NS")
-
-    sbCanvasH = tk.Scrollbar(window,orient="horizontal")
-    sbCanvasH.grid(column=2, row=1, sticky="WE")
-
-    canvas = tk.Canvas(window, bg="black", xscrollcommand=sbCanvasH.set, yscrollcommand=sbCanvasV.set, scrollregion=(0, 0, imgWidth, imgHeigth))
+class FrameMain(wx.Frame):
+    """ The main window.
+    """
     
-    photoImg = tk.PhotoImage(width=imgWidth, height=imgHeigth)
-    canvas.create_image((photoImg.width() / 2, photoImg.height() / 2), image=photoImg, state="normal") # type: ignore
+    Map : mapd.MapdFile
+
+    def __init__(self):
+        super().__init__(None, wx.ID_ANY, "Hello World") 
+
+        self.Map = mapd.MapdFile()
+
+        self.__CreateMenuBar()
+
+    def __CreateMenuBar(self) -> None:
+        """ Creates the main menu.
+        """
+
+        menuFile = wx.Menu()
+        itemOpenMapFile = menuFile.Append(-1, "Open map file")
+        menuFile.AppendSeparator()
+        itemExit = menuFile.Append(-1, "Exit")
+
+        menu = wx.MenuBar()
+        menu.Append(menuFile, "File")
+        self.SetMenuBar(menu)
+
+        self.Bind(wx.EVT_MENU, self.OnOpenMapFile,  itemOpenMapFile)
+        self.Bind(wx.EVT_MENU, self.OnExit,  itemExit)
+
+    def OnOpenMapFile(self, event):
+        """ Loads a map file.
+
+        Args:
+            event (_type_): _description_
+        """
+
+        with wx.FileDialog(self, "Open Map file", wildcard="Multiplayer Map (*.lpm)|*.lpm|Singleplayer Map (*.lps)|*.lps",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+
+        maps = mapd.ReadMaps(fileDialog.GetPath())
+        self.Map = maps[0]
+
+    def OnExit(self, event):
+        """ Closes the application
+        """
+        self.Close(True)
+
+
+# def DrawLayer(photoImg : tk.PhotoImage, layer : npt.NDArray[np.uint32]) -> None:
+#     global Progress
+
+#     width = layer.shape[0]
+#     height = layer.shape[1]
+#     dataStr : list[str] = []
+
+#     Progress.set(0)
+
+#     for row in range(height):
+
+#         dataStr.append("{")
+
+#         for column in range(width):
+#             dataStr.append(f"#{layer[column, row]:06X}")
+
+#         dataStr.append("}")
+#         Progress.set( int((row + 1) / height * 100.0))
+
+#     photoImg.put( " ".join(dataStr), ( 0, 0 ) )
+
+# def ShowLayer(layerIndex : int) -> None:
+#     global LayerList, PhotoImg, ListboxLayers
+
+#     PhotoImg.blank()
+#     DrawLayer(PhotoImg, LayerList[layerIndex])
+#     ListboxLayers.configure(state=tk.NORMAL)
+
+# def ListBoxFileSelected(event : Any) -> None:
+#     selection : int = event.widget.curselection()[0]
+#     event.widget.configure(state=tk.DISABLED)
+#     threading.Thread(target=ShowLayer, args=(selection,)).start()
+
+# def BuildGui(window : tk.Tk, imgWidth : int, imgHeigth : int) -> tuple[tk.PhotoImage, tk.Listbox, tk.IntVar]:
+
+#     window.columnconfigure(0, weight=1)
+#     window.columnconfigure(1, weight=1)
+#     window.columnconfigure(2, weight=1000)
+#     window.columnconfigure(3, weight=1)
+#     window.rowconfigure(0, weight=1000)
+#     window.rowconfigure(1, weight=1)
+#     window.rowconfigure(2, weight=1)
+
+#     sbListboxV = tk.Scrollbar(window,orient="vertical")
+#     sbListboxV.grid(column=0, row=0, sticky="NS")
+
+#     listboxFiles = tk.Listbox(window, yscrollcommand = sbListboxV.set)
+#     listboxFiles.grid(column=1, row=0, sticky="NSWE")
+#     listboxFiles.bind("<<ListboxSelect>>", ListBoxFileSelected)
+
+#     sbListboxV.config(command = listboxFiles.yview) # type: ignore
+
+#     sbCanvasV = tk.Scrollbar(window,orient="vertical")
+#     sbCanvasV.grid(column=3, row=0, sticky="NS")
+
+#     sbCanvasH = tk.Scrollbar(window,orient="horizontal")
+#     sbCanvasH.grid(column=2, row=1, sticky="WE")
+
+#     canvas = tk.Canvas(window, bg="black", xscrollcommand=sbCanvasH.set, yscrollcommand=sbCanvasV.set, scrollregion=(0, 0, imgWidth, imgHeigth))
     
-    canvas.grid(column=2, row=0, sticky="NSWE")
-
-    sbCanvasV.config(command=canvas.yview) # type: ignore
-    sbCanvasH.config(command=canvas.xview) # type: ignore
+#     photoImg = tk.PhotoImage(width=imgWidth, height=imgHeigth)
+#     canvas.create_image((photoImg.width() / 2, photoImg.height() / 2), image=photoImg, state="normal") # type: ignore
     
-    progressVar = tk.IntVar()
-    progress = ttk.Progressbar(window, orient="horizontal", maximum=100, variable=progressVar)
-    progress.grid(column=2, row=2, sticky="WE")
+#     canvas.grid(column=2, row=0, sticky="NSWE")
 
-    return photoImg, listboxFiles, progressVar
+#     sbCanvasV.config(command=canvas.yview) # type: ignore
+#     sbCanvasH.config(command=canvas.xview) # type: ignore
+    
+#     progressVar = tk.IntVar()
+#     progress = ttk.Progressbar(window, orient="horizontal", maximum=100, variable=progressVar)
+#     progress.grid(column=2, row=2, sticky="WE")
 
-def Main(fileName : str) -> None:
-    global LayerList, PhotoImg, ListboxLayers, Progress
+#     return photoImg, listboxFiles, progressVar
 
-    maps = mapd.ReadMaps(fileName)
+# def Main(fileName : str) -> None:
+#     global LayerList, PhotoImg, ListboxLayers, Progress
 
-    window = tk.Tk()
-    PhotoImg, ListboxLayers, Progress = BuildGui(window, 10000, 10000)
+#     maps = mapd.ReadMaps(fileName)
 
-    LayerList.clear()
-    for idxMap in range(len(maps)):
-        map = maps[idxMap]
+#     window = tk.Tk()
+#     PhotoImg, ListboxLayers, Progress = BuildGui(window, 10000, 10000)
 
-        for idxLayer in range(len(map.LayerList)):
-            renderedLayer = map.RenderLayer(idxLayer)
-            LayerList.append(renderedLayer)
-            ListboxLayers.insert(tk.END, f"Map {idxMap} Layer {idxLayer}")
+#     LayerList.clear()
+#     for idxMap in range(len(maps)):
+#         map = maps[idxMap]
 
-    tk.mainloop()
+#         for idxLayer in range(len(map.LayerList)):
+#             renderedLayer = map.RenderLayer(idxLayer)
+#             LayerList.append(renderedLayer)
+#             ListboxLayers.insert(tk.END, f"Map {idxMap} Layer {idxLayer}")
+
+#     tk.mainloop()
 
 if __name__ == "__main__":
     
-    # Main("assets/multiplayermap/mlti_12.lpm")
-    Main("assets/TestEmpty.lpm")
+    app = wx.App()
+
+    frm = FrameMain()
+    frm.Show() 
+    
+    app.MainLoop() 
+
 
