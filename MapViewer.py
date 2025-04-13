@@ -41,7 +41,7 @@ class FrameMain(wx.Frame):
     def __init__(self):
         super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
 
-        terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons2.png")
+        terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
         self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons(terrainIconsPath)
 
         self.__CreateMenuBar()
@@ -82,9 +82,13 @@ class FrameMain(wx.Frame):
         scrollPanel.SetSizer(scrollPanelSizer)
 
         panelSizer = wx.BoxSizer(wx.VERTICAL)
-        # panelSizer.AddSpacer(50)
         panelSizer.Add(scrollPanel, -1, wx.EXPAND)
         panel.SetSizer(panelSizer)
+
+        self.__panelSizer = panelSizer
+        self.__panel = panel
+        self.__scrollPanelSizer = scrollPanelSizer
+        self.__scrollPanel = scrollPanel
 
     def __CreateMenuBar(self) -> None:
         """ Creates the main menu.
@@ -97,8 +101,11 @@ class FrameMain(wx.Frame):
 
         menuView = wx.Menu()
         self.__itemViewBottomLayer = menuView.AppendCheckItem(-1, "View bottom layer")
+        self.__itemViewBottomLayer.Check(True)
         self.__itemViewTopLayer = menuView.AppendCheckItem(-1, "View top layer")
+        self.__itemViewTopLayer.Check(True)
         self.__itemViewAttributes = menuView.AppendCheckItem(-1, "View attributes")
+        self.__itemViewAttributes.Check(True)
 
         menuExport = wx.Menu()
         itemExportMap = menuExport.Append(-1, "Export map to JSON + PNG")
@@ -194,11 +201,13 @@ class FrameMain(wx.Frame):
             for column in range(layer.MapWidthInPixels):
                 rgb = imageData[column, row]
 
-                data.append((rgb >> 16) % 0xFF)
-                data.append((rgb >> 8) & 0xFF)
-                data.append(rgb & 0xFF)
+                data.append((rgb >> 16) % 0xFF)     # red
+                data.append((rgb >> 8) & 0xFF)      # green
+                data.append(rgb & 0xFF)             # blue
 
-        bitmap = wx.Bitmap.FromBuffer(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
+                data.append(0xFF)                   # alpha
+
+        bitmap = wx.Bitmap.FromBufferRGBA(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
         return bitmap
 
     @staticmethod
@@ -256,7 +265,13 @@ class FrameMain(wx.Frame):
         dc.SelectObject(wx.NullBitmap)
 
         self.__ImageControl.SetBitmap(bmp)
-        self.Layout()
+        
+        self.__panel.Layout()
+        self.__panelSizer.Layout()
+        self.__scrollPanel.Layout()
+        self.__scrollPanelSizer.Layout()
+        self.__ImageControl.Layout()
+
 
 if __name__ == "__main__":
 
