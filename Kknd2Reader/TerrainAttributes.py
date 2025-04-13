@@ -23,9 +23,9 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-from enum import Enum
+from enum import IntEnum
 
-class ETerrainAttribute(Enum):
+class ETerrainAttribute(IntEnum):
     OPEN = 0
 
     NO_GO = 1

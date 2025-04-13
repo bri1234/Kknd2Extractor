@@ -32,6 +32,7 @@ import os
 import threading
 
 import Kknd2Reader.KkndFileMapd as mapd
+import Kknd2Reader.TerrainAttributes as ta
 
 class FrameMain(wx.Frame):
     """ The main window.
@@ -40,7 +41,7 @@ class FrameMain(wx.Frame):
     def __init__(self):
         super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
 
-        terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
+        terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons2.png")
         self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons(terrainIconsPath)
 
         self.__CreateMenuBar()
@@ -95,9 +96,9 @@ class FrameMain(wx.Frame):
         itemExit = menuFile.Append(-1, "Exit")
 
         menuView = wx.Menu()
-        itemViewBottomLayer = menuView.Append(-1, "View bottom layer", kind=wx.ITEM_CHECK)
-        itemViewTopLayer = menuView.Append(-1, "View top layer", kind=wx.ITEM_CHECK)
-        itemViewAttributes = menuView.Append(-1, "View attributes", kind=wx.ITEM_CHECK)
+        self.__itemViewBottomLayer = menuView.AppendCheckItem(-1, "View bottom layer")
+        self.__itemViewTopLayer = menuView.AppendCheckItem(-1, "View top layer")
+        self.__itemViewAttributes = menuView.AppendCheckItem(-1, "View attributes")
 
         menuExport = wx.Menu()
         itemExportMap = menuExport.Append(-1, "Export map to JSON + PNG")
@@ -111,6 +112,12 @@ class FrameMain(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnOpenMapFile,  itemOpenMapFile)
         self.Bind(wx.EVT_MENU, self.OnExit,  itemExit)
 
+        self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewBottomLayer)
+        self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewTopLayer)
+        self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewAttributes)
+
+        self.Bind(wx.EVT_MENU, self.OnExportMap, itemExportMap)
+
     def OnOpenMapFile(self, event):
         """ Loads a map file.
         """
@@ -123,6 +130,21 @@ class FrameMain(wx.Frame):
             
         threading.Thread(target=self.LoadAndShowMapFile, args=(fileDialog.GetPath(),)).start()
 
+    def OnExit(self, event):
+        """ Closes the application
+        """
+        self.Close(True)
+
+    def OnVisibleLayerChanged(self, event):
+        """ Updates the view.
+        """
+        self.__UpdateViewLayersAndAttributes()
+
+    def OnExportMap(self, event):
+        """ Exports the map data to JSON + PNG.
+        """
+        pass
+
     def ShowError(self, err : str) -> None:
         """ Shows an error message.
 
@@ -132,11 +154,6 @@ class FrameMain(wx.Frame):
         dlg = wx.MessageDialog(None, err, "An error occurred ...", wx.OK | wx.ICON_ERROR)
         dlg.ShowModal()
         dlg.Destroy()
-
-    def OnExit(self, event):
-        """ Closes the application
-        """
-        self.Close(True)
 
     def LoadAndShowMapFile(self, mapFileName : str) -> None:
         """ Loads the map file and shows it.
@@ -151,9 +168,9 @@ class FrameMain(wx.Frame):
 
                 self.BitmapBottom = FrameMain.RenderBitmapFromLayer(map, 0)
                 self.BitmapTop = FrameMain.RenderBitmapFromLayer(map, 1)
+                self.BitmapAttributes = FrameMain.RenderBitmapFromTerrainAttributes(map, self.__terrainAttributeIconList)
 
-                # TODO: view layers and attributes as selected
-                self.__ImageControl.SetBitmap(self.BitmapBottom)
+                self.__UpdateViewLayersAndAttributes()
 
         except Exception as err:
             self.ShowError(str(err))
@@ -185,8 +202,61 @@ class FrameMain(wx.Frame):
         return bitmap
 
     @staticmethod
-    def RenderBitmapFromTerrainAttributes() -> wx.Bitmap:
-        pass
+    def RenderBitmapFromTerrainAttributes(map : mapd.MapdFile, terrainAttributeIcons : list[wx.Bitmap]) -> wx.Bitmap:
+        """ Renders the tile attributes view in a bitmap.
+
+        Args:
+            map (mapd.MapdFile): The map with the layers and tile attributes.
+            terrainAttributeIcons (list[wx.Bitmap]): The tile attribute icons.
+
+        Returns:
+            wx.Bitmap: The attribute bitmap for the whole map.
+        """
+        
+        layerBottom = map.LayerList[0]
+        tileWidth = layerBottom.TileWidthInPixels
+        tileHeight = layerBottom.TileHeightInPixels
+        
+        bmp = wx.Bitmap(layerBottom.MapWidthInPixels, layerBottom.MapHeightInPixels, 32)
+
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        dc.SetBackground(wx.Brush(wx.WHITE, wx.BRUSHSTYLE_TRANSPARENT))
+        dc.Clear()
+
+        for tileRow in range(layerBottom.MapHeightInTiles):
+           for tileColumn in range(layerBottom.MapWidthInTiles):
+               attribute = layerBottom.TerrainAttributes.GetTerrainAttribute(tileColumn, tileRow)
+
+               if attribute != ta.ETerrainAttribute.OPEN:
+                   attributeIcon = terrainAttributeIcons[attribute]
+                   dc.DrawBitmap(attributeIcon, tileColumn * tileWidth, tileRow * tileHeight)
+
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
+
+    def __UpdateViewLayersAndAttributes(self) -> None:
+        """ Updates the layer view.
+        """
+        bmp = wx.Bitmap(self.BitmapBottom.GetWidth(), self.BitmapBottom.GetHeight(), 32)
+
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        dc.Clear()
+
+        if self.__itemViewBottomLayer.IsChecked():
+            dc.DrawBitmap(self.BitmapBottom, 0, 0)
+
+        if self.__itemViewTopLayer.IsChecked():
+            dc.DrawBitmap(self.BitmapTop, 0, 0)
+
+        if self.__itemViewAttributes.IsChecked():
+            dc.DrawBitmap(self.BitmapAttributes, 0, 0)
+
+        dc.SelectObject(wx.NullBitmap)
+
+        self.__ImageControl.SetBitmap(bmp)
+        self.Layout()
 
 if __name__ == "__main__":
 
