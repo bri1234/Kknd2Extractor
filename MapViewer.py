@@ -31,7 +31,6 @@ import wx.lib.scrolledpanel as wxls
 import os
 import threading
 from pathlib import Path
-import json
 
 import Kknd2Reader.KkndFileMapd as mapd
 import Kknd2Reader.TerrainAttributes as ta
