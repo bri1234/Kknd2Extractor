@@ -25,21 +25,24 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-import wx 
+import wx
 import wx.lib.scrolledpanel as wxls
 
 import os
 import threading
+from pathlib import Path
+import json
 
 import Kknd2Reader.KkndFileMapd as mapd
 import Kknd2Reader.TerrainAttributes as ta
+import Kknd2Reader.PrettyJson as pjson
 
 class FrameMain(wx.Frame):
     """ The main window.
     """
-    
+
     def __init__(self):
-        super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
+        super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800))
 
         terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
         self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons(terrainIconsPath)
@@ -59,7 +62,7 @@ class FrameMain(wx.Frame):
         """
         terrainAttributeIcons = wx.Bitmap(fileName)
         terrainAttributeIconList : list[wx.Bitmap] = []
-        
+
         for idx in range(36):
             icon = terrainAttributeIcons.GetSubBitmap(wx.Rect(idx * 32, 0, 32, 32))
             terrainAttributeIconList.append(icon)
@@ -134,7 +137,7 @@ class FrameMain(wx.Frame):
 
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
-            
+
         threading.Thread(target=self.LoadAndShowMapFile, args=(fileDialog.GetPath(),)).start()
 
     def OnExit(self, event):
@@ -150,7 +153,12 @@ class FrameMain(wx.Frame):
     def OnExportMap(self, event):
         """ Exports the map data to JSON + PNG.
         """
-        pass
+        baseFileName = str(Path(self.__mapFileName).with_suffix(""))
+        self.ExportMap(baseFileName)
+
+        dlg = wx.MessageDialog(None, f"Map exported to {baseFileName}.json", "Export finished", wx.OK | wx.ICON_INFORMATION)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def ShowError(self, err : str) -> None:
         """ Shows an error message.
@@ -179,6 +187,9 @@ class FrameMain(wx.Frame):
 
                 self.__UpdateViewLayersAndAttributes()
 
+                self.__mapFileName = mapFileName
+                self.__map = map
+
         except Exception as err:
             self.ShowError(str(err))
 
@@ -195,17 +206,17 @@ class FrameMain(wx.Frame):
         """
         layer = map.LayerList[layerIndex]
         imageData = map.RenderLayer(layerIndex)
+
         data = bytearray()
 
         for row in range(layer.MapHeightInPixels):
             for column in range(layer.MapWidthInPixels):
-                rgb = imageData[column, row]
+                argb = imageData[column, row]
 
-                data.append((rgb >> 16) % 0xFF)     # red
-                data.append((rgb >> 8) & 0xFF)      # green
-                data.append(rgb & 0xFF)             # blue
-
-                data.append(0xFF)                   # alpha
+                data.append((argb >> 16) & 0xFF)     # red
+                data.append((argb >> 8) & 0xFF)      # green
+                data.append(argb & 0xFF)             # blue
+                data.append((argb >> 24) & 0xFF)     # alpha
 
         bitmap = wx.Bitmap.FromBufferRGBA(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
         return bitmap
@@ -221,11 +232,11 @@ class FrameMain(wx.Frame):
         Returns:
             wx.Bitmap: The attribute bitmap for the whole map.
         """
-        
+
         layerBottom = map.LayerList[0]
         tileWidth = layerBottom.TileWidthInPixels
         tileHeight = layerBottom.TileHeightInPixels
-        
+
         bmp = wx.Bitmap(layerBottom.MapWidthInPixels, layerBottom.MapHeightInPixels, 32)
 
         dc = wx.MemoryDC()
@@ -244,42 +255,114 @@ class FrameMain(wx.Frame):
         dc.SelectObject(wx.NullBitmap)
         return bmp
 
-    def __UpdateViewLayersAndAttributes(self) -> None:
-        """ Updates the layer view.
+    def __RenderLayerView(self, bottomLayerVisible : bool, topLayerVisible : bool, attributesVisible : bool, transparentBackground : bool) -> wx.Bitmap:
+        """ Renders layer and attributes view.
+
+        Args:
+            bottomLayerVisible (bool): True if bottom layer shall be visible.
+            topLayerVisible (bool): True if top layer shall be visible.
+            attributesVisible (bool): True if attributes shall be visible.
+
+        Returns:
+            wx.Bitmap: The resulting bitmap.
         """
         bmp = wx.Bitmap(self.BitmapBottom.GetWidth(), self.BitmapBottom.GetHeight(), 32)
 
         dc = wx.MemoryDC()
         dc.SelectObject(bmp)
+
+        backgroundBrushStyle = wx.BRUSHSTYLE_TRANSPARENT if transparentBackground else wx.BRUSHSTYLE_SOLID
+        dc.SetBackground(wx.Brush(wx.WHITE, backgroundBrushStyle))
+
         dc.Clear()
 
-        if self.__itemViewBottomLayer.IsChecked():
+        if bottomLayerVisible:
             dc.DrawBitmap(self.BitmapBottom, 0, 0)
 
-        if self.__itemViewTopLayer.IsChecked():
+        if topLayerVisible:
             dc.DrawBitmap(self.BitmapTop, 0, 0)
 
-        if self.__itemViewAttributes.IsChecked():
+        if attributesVisible:
             dc.DrawBitmap(self.BitmapAttributes, 0, 0)
 
         dc.SelectObject(wx.NullBitmap)
 
+        return bmp
+
+    def __UpdateViewLayersAndAttributes(self) -> None:
+        """ Updates the layer view.
+        """
+        bmp = self.__RenderLayerView(self.__itemViewBottomLayer.IsChecked(),
+                                     self.__itemViewTopLayer.IsChecked(),
+                                     self.__itemViewAttributes.IsChecked(),
+                                     False)
+
         self.__ImageControl.SetBitmap(bmp)
-        
+
         self.__panel.Layout()
         self.__panelSizer.Layout()
         self.__scrollPanel.Layout()
         self.__scrollPanelSizer.Layout()
         self.__ImageControl.Layout()
 
+    def ExportMap(self, baseFileName : str) -> None:
+        """ Exports the currently loaded map for use in other programs.
+            Creates 3 files:
+
+                map_bottom.png   -> the bottem layer
+                map_top.png      -> the top layer
+                map.json         -> map informations
+
+        Args:
+            baseFileName (str): The base filename for the 3 created files.
+        """
+
+        # export bottom layer as PNG
+        fileNameBottomLayer = baseFileName + "_bottom.png"
+        bmpBottom = self.__RenderLayerView(True, False, False, True)
+        bmpBottom.SaveFile(fileNameBottomLayer, wx.BITMAP_TYPE_PNG)
+
+        # export top layer as PNG
+        fileNameTopLayer = baseFileName + "_top.png"
+        bmpTop = self.__RenderLayerView(False, True, False, True)
+        bmpTop.SaveFile(fileNameTopLayer, wx.BITMAP_TYPE_PNG)
+
+        layer = self.__map.LayerList[0]
+
+        # create tile terrain attribute map
+        attributeMapRows = []
+        for tileRow in range(layer.MapHeightInTiles):
+            row = []
+            for tileColumn in range(layer.MapHeightInTiles):
+                row.append(int(layer.TerrainAttributes.GetTerrainAttribute(tileColumn, tileRow)))
+            attributeMapRows.append(pjson.JsonFlatList(row))
+
+        # create map informations
+        info = {
+            "BottomLayer" : str(Path(fileNameBottomLayer).name),
+            "TopLayer" : str(Path(fileNameTopLayer).name),
+            "TileWidthInPixels" : layer.TileWidthInPixels,
+            "TileHeightInPixels" : layer.TileHeightInPixels,
+            "MapWidthInTiles" : layer.MapWidthInTiles,
+            "MapHeightInTiles" : layer.MapHeightInTiles,
+            "MapWidthInPixels" : layer.MapWidthInPixels,
+            "MapHeightInPixels" : layer.MapHeightInPixels,
+
+            "TerrainAttributes" : { attr.name: attr.value for attr in ta.ETerrainAttribute },
+            "TerrainAttributeMapRows" : attributeMapRows
+        }
+
+        # write JSON file
+        fileNameJson = baseFileName + ".json"
+        pjson.ExportAsJsonFile(fileNameJson, info)
 
 if __name__ == "__main__":
 
     app = wx.App()
 
     frm = FrameMain()
-    frm.Show() 
-    
-    app.MainLoop() 
+    frm.Show()
+
+    app.MainLoop()
 
 

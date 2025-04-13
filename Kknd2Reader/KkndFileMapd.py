@@ -308,11 +308,11 @@ class MapdLayer:
         if self.MapHeightInPixels != self.TileHeightInPixels * self.MapHeightInTiles:
             raise Exception(f"Error map height is invalid!")
         
-    def RenderImageUInt32(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
-        """ Renders the layer as RGB data.
+    def RenderImageUInt32Argb(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
+        """ Renders the layer as ARGB data.
 
         Returns:
-            npt.NDArray[np.uint32]: The layer RGB data in a 2D array [Width, Height].
+            npt.NDArray[np.uint32]: The layer ARGB data in a 2D array [Width, Height].
         """
 
         colors = colorPalette.Colors
@@ -328,9 +328,13 @@ class MapdLayer:
                 for tilePixelRow in range(tile.Height):
                     for tilePixelColumn in range(tile.Width):
                         pixel = tile.GetPixel(tilePixelColumn, tilePixelRow)
+                        if pixel >= len(colors):
+                            raise Exception(f"Can not render imager, invalid pixel value: {pixel}")
 
-                        pixelColor = colors[pixel] if pixel >= 0 and pixel < len(colors) else 0
-                        pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = pixelColor
+                        # pixel is transparent if pixel value is 0
+                        
+                        pixelArgbColor = colors[pixel] | 0xFF000000 if pixel != 0 else 0x00000000
+                        pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = pixelArgbColor
 
         return pixels
 
@@ -401,7 +405,7 @@ class MapdFile:
         Returns:
             npt.NDArray[np.uint32]: The layer RGB data in a 2D array [Width, Height].
         """
-        return self.LayerList[layerIndex].RenderImageUInt32(self.ColorPalette)
+        return self.LayerList[layerIndex].RenderImageUInt32Argb(self.ColorPalette)
 
 def ReadMaps(fileName : str) -> list[MapdFile]:
     """ Reads all MAPD files from a KKND2 asset file container.
@@ -428,13 +432,3 @@ def ReadMaps(fileName : str) -> list[MapdFile]:
 
     return mapdFileList
 
-def __Test() -> None:
-    # maps = ReadMaps("assets/multiplayermap/mlti_12.lpm")
-    maps = ReadMaps("assets/Test_2_2.lpm")
-
-    layer = maps[0].LayerList[0]
-    print(f"Tile count = {len(layer.TileList)}")
-    print(f"Tile size = {layer.TileWidthInPixels * layer.TileHeightInPixels}")
-
-if __name__ == "__main__":
-    __Test()
