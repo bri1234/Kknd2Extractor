@@ -94,8 +94,18 @@ class FrameMain(wx.Frame):
         menuFile.AppendSeparator()
         itemExit = menuFile.Append(-1, "Exit")
 
+        menuView = wx.Menu()
+        itemViewBottomLayer = menuView.Append(-1, "View bottom layer", kind=wx.ITEM_CHECK)
+        itemViewTopLayer = menuView.Append(-1, "View top layer", kind=wx.ITEM_CHECK)
+        itemViewAttributes = menuView.Append(-1, "View attributes", kind=wx.ITEM_CHECK)
+
+        menuExport = wx.Menu()
+        itemExportMap = menuExport.Append(-1, "Export map to JSON + PNG")
+
         menu = wx.MenuBar()
         menu.Append(menuFile, "File")
+        menu.Append(menuView, "View")
+        menu.Append(menuExport, "Export")
         self.SetMenuBar(menu)
 
         self.Bind(wx.EVT_MENU, self.OnOpenMapFile,  itemOpenMapFile)

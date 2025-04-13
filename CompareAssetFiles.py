@@ -26,7 +26,7 @@ IN THE SOFTWARE.
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList
 
-def CompareMapdFiles(fileName1 : str, fileName2 : str) -> None:
+def CompareAssetFiles(fileName1 : str, fileName2 : str) -> None:
 
     print(f"compare files {fileName1} / {fileName2}")
 
@@ -44,9 +44,6 @@ def CompareMapdFiles(fileName1 : str, fileName2 : str) -> None:
     for fileTypeIdx in range(len(fileTypeList1)):
         fileType1 = fileTypeList1[fileTypeIdx]
         fileType2 = fileTypeList2[fileTypeIdx]
-
-        if fileType1.FileType != "MAPD":
-            continue
 
         print()
         print("--------------------------------------------------------------------------------------------")
@@ -91,6 +88,6 @@ def CompareMapdFiles(fileName1 : str, fileName2 : str) -> None:
 if __name__ == "__main__":
 
     #CompareMapdFiles("assets/TestEmpty.lpm", "assets/TestAll.lpm")
-    CompareMapdFiles("assets/TestEmpty.lpm", "assets/Test_2_2.lpm")
+    CompareAssetFiles("assets/TestEmpty.lpm", "assets/Test_2_2.lpm")
     #CompareMapdFiles("assets/TestEmpty.lpm", "assets/Test_3_2.lpm")
     #CompareMapdFiles("assets/TestEmpty.lpm", "assets/Test_2_3.lpm")
