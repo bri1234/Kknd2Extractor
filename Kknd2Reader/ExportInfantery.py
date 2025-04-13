@@ -27,8 +27,8 @@ from typing import Any
 import base64
 import zlib
 
-from KkndFileContainer import ContainerFileType
-from KkndFileMobd import MobdFrame, MobdFile, MobdAnimation
+from Kknd2Reader.KkndFileContainer import ContainerFileType
+from Kknd2Reader.KkndFileMobd import MobdFrame, MobdFile, MobdAnimation
 
 def ExportFrame(frame : MobdFrame) -> dict[str, Any]:
     

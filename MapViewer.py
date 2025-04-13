@@ -27,10 +27,11 @@ IN THE SOFTWARE.
 
 import wx 
 import wx.lib.scrolledpanel as wxls
+
+import os
 import threading
 
-import KkndFileMapd as mapd
-
+import Kknd2Reader.KkndFileMapd as mapd
 
 class FrameMain(wx.Frame):
     """ The main window.
@@ -39,11 +40,22 @@ class FrameMain(wx.Frame):
     def __init__(self):
         super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800)) 
 
-        self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons("TerrainAttributeIcons.png")
+        terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
+        self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons(terrainIconsPath)
+
         self.__CreateMenuBar()
         self.__CreateWidgets()
 
-    def __LoadTerrainAttributeIcons(self, fileName : str) -> list[wx.Bitmap]:
+    @staticmethod
+    def __LoadTerrainAttributeIcons(fileName : str) -> list[wx.Bitmap]:
+        """ Reads the terrain attribute icons that are stored in one PNG file.
+
+        Args:
+            fileName (str): The name of the PNG file with the terrain attribute icons.
+
+        Returns:
+            list[wx.Bitmap]: The terrain aatribute icons.
+        """
         terrainAttributeIcons = wx.Bitmap(fileName)
         terrainAttributeIconList : list[wx.Bitmap] = []
         
@@ -130,7 +142,8 @@ class FrameMain(wx.Frame):
                 self.BitmapBottom = FrameMain.RenderBitmapFromLayer(map, 0)
                 self.BitmapTop = FrameMain.RenderBitmapFromLayer(map, 1)
 
-                self.__ImageControl.SetBitmap(bmp)
+                # TODO: view layers and attributes as selected
+                self.__ImageControl.SetBitmap(self.BitmapBottom)
 
         except Exception as err:
             self.ShowError(str(err))

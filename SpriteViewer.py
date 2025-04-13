@@ -29,9 +29,9 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 
-import KkndFileCompression as compression
-import KkndFileContainer as container
-import KkndFileMobd as mobd
+import Kknd2Reader.KkndFileCompression as compression
+import Kknd2Reader.KkndFileContainer as container
+import Kknd2Reader.KkndFileMobd as mobd
 
 FileList : list[container.ContainerFile]
 PhotoImg : tk.PhotoImage

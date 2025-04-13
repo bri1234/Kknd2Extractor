@@ -25,8 +25,8 @@ IN THE SOFTWARE.
 
 import numpy as np
 import numpy.typing as npt
-from DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
-from KkndFileContainer import ContainerFile
+from Kknd2Reader.DataBuffer import GetInt32LE, GetUInt32LE, GetUInt16LE, GetUInt8, GetStringReverse
+from Kknd2Reader.KkndFileContainer import ContainerFile
 
 class ModbPoint:
     """ This class represents one point.

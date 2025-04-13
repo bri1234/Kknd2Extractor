@@ -25,10 +25,10 @@ IN THE SOFTWARE.
 
 import numpy as np
 import numpy.typing as npt
-from KkndFileCompression import UncompressFile
-from KkndFileContainer import ReadFileTypeList
-from DataBuffer import GetStringReverse, GetUInt32LE, GetUInt16LE
-from TerrainAttributes import ETerrainAttribute
+from Kknd2Reader.KkndFileCompression import UncompressFile
+from Kknd2Reader.KkndFileContainer import ReadFileTypeList
+from Kknd2Reader.DataBuffer import GetStringReverse, GetUInt32LE, GetUInt16LE
+from Kknd2Reader.TerrainAttributes import ETerrainAttribute
 
 class MapdColorPalette:
     """ This class stores the color palette.

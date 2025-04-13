@@ -23,20 +23,11 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-from KkndFileCompression import UncompressFile
-from KkndFileContainer import ReadFileTypeList, ContainerFile
-import KkndFileMobd as _mobd
+from Kknd2Reader.KkndFileCompression import UncompressFile
+from Kknd2Reader.KkndFileContainer import ReadFileTypeList
 
 import os
 from pathlib import Path
-
-# KKND2 file endings:
-#   ".lpk"  Spritesheet container
-#   ".bpk"  Image container
-#   ".spk"  Sound set
-#   ".lps"  Singleplayer map
-#   ".lpm"  Multiplayer map
-#   ".mpk"  Matrix set (destroyable map part, tile replacements)
 
 def ShowFileContent(fileName : str, contentJsonFileName : str | None = None) -> None:
     """ Shows the content of a KKND2 asset file.#
@@ -84,7 +75,7 @@ def ShowContentOfFilesInDirectory(directoryPath : str, fileEnding : str | None =
             #print(file.path)
             ShowFileContent(file.path)
 
-def ExportFile(containerFileName : str, fileTypeIndex : int, fileIndex : int) -> None:
+def ExportRawFile(containerFileName : str, fileTypeIndex : int, fileIndex : int) -> None:
     """ Exports the raw data of a file in the KKND2 asset container.
 
     Args:
@@ -99,7 +90,7 @@ def ExportFile(containerFileName : str, fileTypeIndex : int, fileIndex : int) ->
     with open(f"{Path(containerFileName).stem}_{fileTypeIndex}_{fileIndex}.mobd", "wb") as f:
         f.write(file.RawData)
 
-def ExportContainerFiles(containerFileName : str, fileTypeStr : str, outDir : str) -> None:
+def ExportRawContainerFiles(containerFileName : str, fileTypeStr : str, outDir : str) -> None:
     """ Export all files of a KKND2 asset file container.
 
     Args:
@@ -133,62 +124,7 @@ def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
             if (not file.is_file()) or (not file.path.endswith(".lpk")):
                 continue
             
-            ExportContainerFiles(file.path, "MOBD", outDir)
-
-def TestMobdAnimation(file : ContainerFile) -> None:
-    """ Only for testing: read an animation.
-
-    Args:
-        file (ContainerFile): The container with the animation.
-    """
-    print(f"*** FILE Number {file.FileNumber} Index {file.Index} ***")
-    mobd = _mobd.MobdFile()
-    mobd.ReadAnimations(file.RawData, file.FileOffset)
-
-def TestMobd(containerFileName : str, fileTypeStr : str, fileIndex : int | None = None) -> None:
-    """ Only for testing: read an MOBD File.
-
-    Args:
-        containerFileName (str): The name and path of the KKND2 asset file.
-        fileTypeStr (str): Export the files with this file type.
-        fileIndex (int | None, optional): _description_. Defaults to None.
-    """
-    containerData, _, _ = UncompressFile(containerFileName)
-    fileTypeList, _ = ReadFileTypeList(containerData)
-
-    for fileType in fileTypeList:
-        if fileType.FileType == fileTypeStr:
-            
-            if fileIndex is None:
-                for file in fileType.FileList:
-                    TestMobdAnimation(file)
-            else:
-                TestMobdAnimation(fileType.FileList[fileIndex])
-
-            break
-
-def TestMobdDir(directoryPath : str, fileEnding : str | None = None) -> None:
-    """ Only for testing: 
-
-    Args:
-        directoryPath (str): _description_
-        fileEnding (str | None, optional): _description_. Defaults to None.
-    """
-    for dir in os.scandir(directoryPath):
-        if not dir.is_dir():
-            continue
-
-        for file in os.scandir(dir):
-            if not file.is_file():
-                continue
-            
-            if (fileEnding is not None) and (not file.path.endswith(fileEnding)):
-                continue
-
-            print("******************************************")
-            print(f"********** {file.path} **********")
-
-            TestMobd(file.path, "MOBD")
+            ExportRawContainerFiles(file.path, "MOBD", outDir)
 
 if __name__ == "__main__":
     

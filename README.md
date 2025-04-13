@@ -8,3 +8,13 @@ Based partly on the following projects:
 - https://github.com/ucosty/kknd2-mapview
 
 
+# KKND2 files
+
+- ".lpk"  Spritesheet container
+- ".bpk"  Image container
+- ".spk"  Sound set
+- ".lps"  Singleplayer map
+- ".lpm"  Multiplayer map
+- ".mpk"  Matrix set (destroyable map part, tile replacements)
+
+

@@ -24,7 +24,7 @@ IN THE SOFTWARE.
 """
 
 import json
-from DataBuffer import GetUInt32LE, GetString
+from Kknd2Reader.DataBuffer import GetUInt32LE, GetString
 
 class ContainerFile:
     """ This class represents one raw file in the file container.

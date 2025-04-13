@@ -24,7 +24,7 @@ IN THE SOFTWARE.
 """
 
 from io import BufferedReader
-from DataBuffer import ReadUInt32LE, ReadUInt32BE
+from Kknd2Reader.DataBuffer import ReadUInt32LE, ReadUInt32BE
 
 def __ReadHeader(file : BufferedReader) -> tuple[int, int, int, int]:
     """ Reads the header of the file.
