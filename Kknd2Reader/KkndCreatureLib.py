@@ -24,114 +24,289 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-class LibraryEntry:
-    Id : int
+import math
+import wx # type: ignore
+
+MAGIC_FILE = 0x4B32434C
+MAGIC_ENTRY = 0x4B324352
+MAGIC_BMP = 0x424D
+
+def ReadPascalString(data : bytes, position : int) -> tuple[str, int]:
+    """ Reads a Pascal string from raw file data.
+
+    Args:
+        data (bytes): The raw data.
+        position (int): The start position of the Pascal string.
+
+    Returns:
+        str: The string.
+        int: The new position after the string.
+    """
+    length = data[position]
+    position += 1
+
+    strBytes = data[position : position + length]
+    position += length
+
+    s = strBytes.decode("ascii")
+    return s, position
+
+class LibraryEntryProperty:
+    """ Represents a property of a library entry.
+    """
+    # the property name
     Name : str
 
-class CreatureLibrary:
+    # the property values
+    Values : dict[str, int]
 
-    MAGIC_FILE = 0x4B32434C
-    MAGIC_ENTRY = 0x4B324352
-    MAGIC_BMP = 0x424D
+    # unknown metadata
+    Metadata : bytes
 
-    def ReadLibraryFile(self, fileName : str) -> None:
+    def __init__(self) -> None:
+        self.Values = {}
 
-        with open(fileName, "rb") as file:
-            data = file.read()
+    def ReadProperty(self, data : bytes, pos : int) -> int:
+        """ Reads a library entry property.
 
-        self.__ParseLibraryData(data)
+        Args:
+            data (bytes): The raw library file data.
+            pos (int): The property position in the file data.
 
-    @staticmethod
-    def __ParseLibraryData(data : bytes) -> None:
-        magic = int.from_bytes(data[0 : 4])
-        if magic != CreatureLibrary.MAGIC_FILE:
-            raise Exception("missing magic number at file start")
-        
-        numberOfEntries = int.from_bytes(data[4 : 6], "little")
-        pos = 6
-
-        for _ in range(numberOfEntries):
-            entry, pos = CreatureLibrary.__ParseEntry(data, pos)
-
-    @staticmethod
-    def __ParsePascalString(data : bytes, position : int) -> tuple[str, int]:
-        length = data[position]
-        position += 1
-        b = data[position : position + length]
-        position += length
-        s = b.decode("ascii")
-        return s, position
-    
-    @staticmethod
-    def __ParseEntry(data : bytes, pos : int) -> tuple[LibraryEntry, int]:
-
-        magic = int.from_bytes(data[pos : pos + 4])
-        if magic != CreatureLibrary.MAGIC_ENTRY:
-            raise Exception(f"missing magic number at entry start (position {pos})")
-        pos += 4
-        
-        libraryEntry = LibraryEntry()
-
-        libraryEntry.Id = int.from_bytes(data[pos : pos + 2], "little")
-        pos += 2
-
-        libraryEntry.Name, pos = CreatureLibrary.__ParsePascalString(data, pos)
-        print(libraryEntry.Name)
-
-        lengthMetadata = int.from_bytes(data[pos : pos + 2], "little")
-        pos += 2 + lengthMetadata + 6
-
-        numberOfProperties = int.from_bytes(data[pos : pos + 2], "little")
-        pos += 2
-
-        for _ in range(numberOfProperties):
-            pos = CreatureLibrary.__ParseProperty(data, pos)
-
-        hasBmpFile = int.from_bytes(data[pos : pos + 1])
-        pos += 1
-
-        if hasBmpFile != 0:
-            pos = CreatureLibrary.__ParseBitmap(data, pos)
-
-        return libraryEntry, pos
-
-    @staticmethod
-    def __ParseBitmap(data : bytes, pos : int) -> int:
-        # it is a normal BMP file
-        magic = int.from_bytes(data[pos : pos + 2])
-        if magic != CreatureLibrary.MAGIC_BMP:
-            raise Exception(f"missing magic number at BMP start (position {pos})")
-
-        fileSize = int.from_bytes(data[pos + 2 : pos + 6], "little")
-
-        bmpImageData = data[pos : pos + fileSize]
-
-        pos += fileSize
-
-        return pos
-
-    @staticmethod
-    def __ParseProperty(data : bytes, pos : int) -> int:
-
-        name, pos = CreatureLibrary.__ParsePascalString(data, pos)
+        Returns:
+            int: The new position after the property.
+        """
+        self.Name, pos = ReadPascalString(data, pos)
 
         propertyType = int.from_bytes(data[pos : pos + 1])
         pos += 1
 
         if propertyType in (1, 2, 3):
+            self.Metadata = data[pos : pos + 12]
             pos += 12
+
             arrayLength = int.from_bytes(data[pos : pos + 2], "little")
             pos += 2
 
             for _ in range(arrayLength):
-                arrayItemName, pos = CreatureLibrary.__ParsePascalString(data, pos)
+                arrayItemName, pos = ReadPascalString(data, pos)
                 arrayItemValue = int.from_bytes(data[pos : pos + 4], "little")
+                self.Values[arrayItemName] = arrayItemValue
+
                 pos += 4
 
-        else:
+        elif propertyType in (4, 5, 6, 7):
             pos += 14
+        else:
+            raise Exception(f"Unknown property type: {propertyType} of property {self.Name}")
         
         return pos
+    
+class LibraryEntry:
+    """ Represents an entry in the creature library.
+    """
+    # the creature ID
+    Id : int            
+
+    # the creature name
+    Name : str          
+
+    # the creature image
+    Image : wx.Image
+
+    # the raw BMP image
+    BmpImageData : bytes
+
+    # unknwon metadata
+    Metadata : bytes    
+
+    def ReadLibraryEntry(self, data : bytes, pos : int) -> int:
+        """ Reads a library entry.
+
+        Args:
+            data (bytes): The raw library file data.
+            pos (int): The entry position in the file data.
+
+        Returns:
+            int: The new position after the entry.
+        """
+
+        # each library entry starts with a magic number
+        magic = int.from_bytes(data[pos : pos + 4])
+        if magic != MAGIC_ENTRY:
+            raise Exception(f"missing magic number at entry start (position {pos})")
+        pos += 4
+
+        # the entry ID
+        self.Id = int.from_bytes(data[pos : pos + 2], "little")
+        pos += 2
+
+        # the entry Name
+        self.Name, pos = ReadPascalString(data, pos)
+
+        # unknown Metadata
+        lengthMetadata = int.from_bytes(data[pos : pos + 2], "little")
+        pos += 2
+
+        self.Metadata = data[pos : pos + lengthMetadata + 6]
+        pos += lengthMetadata + 6
+
+        # number of creature properties
+        numberOfProperties = int.from_bytes(data[pos : pos + 2], "little")
+        pos += 2
+
+        for _ in range(numberOfProperties):
+            property = LibraryEntryProperty()
+            pos = property.ReadProperty(data, pos)
+
+        hasBmpFile = int.from_bytes(data[pos : pos + 1])
+        pos += 1
+
+        if hasBmpFile != 0:
+            pos = self.__ParseBitmap(data, pos)
+
+        return pos
+
+    def __ParseBitmap(self, data : bytes, pos : int) -> int:
+        """ Parses the bitmap.
+
+        Args:
+            data (bytes): The raw library file data.
+            pos (int): The bitmap position in the file data.
+
+        Returns:
+            int: The new position after the image.
+        """
+        startPos = pos
+
+        # it is a normal BMP file
+        magic = int.from_bytes(data[pos : pos + 2])
+        if magic != MAGIC_BMP:
+            raise Exception(f"missing magic number at BMP start (position {pos})")
+
+        fileSize = int.from_bytes(data[pos + 2 : pos + 6], "little")
+        self.BmpImageData = data[pos : pos + fileSize]
+
+        # read bitmap header
+        pixelDataOffset = int.from_bytes(data[pos + 10 : pos + 14], "little")
+        bitmapInfoHeaderSize = int.from_bytes(data[pos + 14 : pos + 18], "little")
+        bitmapWidth = int.from_bytes(data[pos + 18 : pos + 22], "little")
+        bitmapHeight = int.from_bytes(data[pos + 22 : pos + 26], "little")
+        bitmapBitCount = int.from_bytes(data[pos + 28 : pos + 30], "little")
+        bitmapCompression = int.from_bytes(data[pos + 30 : pos + 34], "little")
+        bitmapSizeImage = int.from_bytes(data[pos + 34 : pos + 38], "little")
+        bitmapColorUsed = int.from_bytes(data[pos + 46 : pos + 50], "little")
+        # bitmapColorImportant = int.from_bytes(data[pos + 50 : pos + 54], "little")
+
+        pos += 54
+
+        if bitmapColorUsed == 0:
+            bitmapColorUsed = 2 ** bitmapBitCount
+
+        bitmapRowWidthInBytes = math.ceil(bitmapWidth / 4.0) * 4
+
+        if bitmapRowWidthInBytes * bitmapHeight != bitmapSizeImage:
+            raise Exception(f"Invalid BMP bitmap size: width = {bitmapWidth} height = {bitmapHeight} bitmap size = {bitmapSizeImage}")
+        
+        if bitmapInfoHeaderSize != 40:
+            raise Exception(f"Invalid bitmap info header size: {bitmapInfoHeaderSize}")
+        
+        if bitmapBitCount != 8:
+            raise Exception(f"Unsupported BMP bitmap bit count: {bitmapBitCount}")
+        
+        if bitmapCompression != 0:
+            raise Exception(f"Unsupported bitmap compression: {bitmapCompression}")
+        
+        # read color palette
+        palette : list[int] = []
+
+        for _ in range(bitmapColorUsed):
+            colorRgb = int.from_bytes(data[pos : pos + 4], "little")
+            palette.append(colorRgb)
+            pos += 4
+
+        if pos != startPos + pixelDataOffset:
+            raise Exception(f"invalid BMP palette and header size")
+        
+        # read pixel data
+        pixelData = data[pos : pos + bitmapSizeImage]
+        imgBuffer = bytearray()
+        alphaBuffer = bytearray()
+
+        pixelIdx = 0
+        for _ in range(bitmapHeight):
+            for column in range(bitmapRowWidthInBytes):
+                pixel = pixelData[pixelIdx]
+                pixelIdx += 1
+
+                if column >= bitmapWidth:
+                    continue
+
+                color = palette[pixel]
+                alpha = 0xFF if pixel != 0 else 0x00
+
+                imgBuffer.append((color >> 16) & 0xFF)
+                imgBuffer.append((color >> 8) & 0xFF)
+                imgBuffer.append((color >> 0) & 0xFF)
+                alphaBuffer.append(alpha)
+        
+        self.Image = wx.ImageFromBuffer(bitmapWidth, bitmapHeight, imgBuffer, alphaBuffer)
+
+        #self.Image.SaveFile(f"{self.Name}.png", wx.BITMAP_TYPE_PNG)
+
+        pos += bitmapSizeImage
+
+        if pos != startPos + fileSize:
+            raise Exception(f"Invalid BMP file size: {fileSize}")
+        
+        return pos
+    
+class CreatureLibrary:
+    """ The content of the creature library.
+    """
+
+    EntryList : list[LibraryEntry]
+
+    def __init__(self) -> None:
+        self.EntryList = []
+
+    def ReadLibraryFile(self, fileName : str) -> None:
+        """ Reads the content of the KKND2 creature library.
+
+        Args:
+            fileName (str): _description_
+        """
+
+        with open(fileName, "rb") as file:
+            data = file.read()
+
+        self.EntryList = self.__ReadLibraryEntries(data)
+
+    @staticmethod
+    def __ReadLibraryEntries(data : bytes) -> list[LibraryEntry]:
+        """ Reads the library entries
+
+        Args:
+            data (bytes): The raw file data.
+
+        Returns:
+            ist[LibraryEntry]: List of all creature library entries.
+        """
+        # library data starts with a magic number
+        magic = int.from_bytes(data[0 : 4])
+        if magic != MAGIC_FILE:
+            raise Exception("missing magic number at file start")
+        
+        numberOfEntries = int.from_bytes(data[4 : 6], "little")
+        pos = 6
+
+        entryList : list[LibraryEntry] = []
+        for _ in range(numberOfEntries):
+            entry = LibraryEntry()
+            pos = entry.ReadLibraryEntry(data, pos)
+            entryList.append(entry)
+
+        return entryList
     
 
 

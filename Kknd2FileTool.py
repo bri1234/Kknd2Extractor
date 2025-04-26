@@ -131,5 +131,5 @@ if __name__ == "__main__":
     
     ShowFileContent(sys.argv[1])
 
-
+    # ExportRawContainerFiles(sys.argv[1], "MOBD", "tst")
 
