@@ -26,6 +26,7 @@ IN THE SOFTWARE.
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList
 
+import sys
 import os
 from pathlib import Path
 
@@ -128,28 +129,7 @@ def ExportAllMobdFiles(directoryPath : str, outDir : str) -> None:
 
 if __name__ == "__main__":
     
-    # ShowContentOfFilesInDirectory("assets", ".lpk")
-
-    # ExportAllMobdFiles("assets", "out")
-
-    # ShowFileContent("assets/spritesheets/gamesprt.lpk") # , "gamesprt.lpk.json")
-    # ShowFileContent("assets/spritesheets/gamesprt.lpk")
-    # ShowFileContent("assets/spritesheets/gluesprt.lpk")
-
-    # Multiplayer Map
-    ShowFileContent("assets/multiplayermap/mlti_01.lpm")
-    # ShowFileContent("assets/singleplayermap/robo_01.lps")
-
-    # Tile sets
-    # ExportFile("assets/spritesheets/gluesprt.lpk", 2)
-    # ShowFileContent("assets/spritesheets/gamesprt.lpk")
-    # ExportFile("assets/spritesheets/gamesprt.lpk", 10)
-
-    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 1)
-    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD", 52)
-    # TestMobd("assets/spritesheets/gamesprt.lpk", "MOBD")
-    # TestMobdDir("assets", ".lpk")
-
+    ShowFileContent(sys.argv[1])
 
 
 

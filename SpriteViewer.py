@@ -160,7 +160,7 @@ def Main() -> None:
     global FileList, PhotoImg, ListboxFiles, Progress
 
     containerData, _, _ = compression.UncompressFile("assets/spritesheets/gamesprt.lpk")
-    fileTypeList, _ = container.ReadFileTypeList(containerData, "gamesprt.lpk.json")
+    fileTypeList, _ = container.ReadFileTypeList(containerData, "Kknd2Reader/gamesprt.lpk.json")
 
     if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
         raise Exception("Unexpected file type")

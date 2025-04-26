@@ -23,6 +23,8 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
+import sys
+
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList
 
@@ -66,8 +68,12 @@ def CompareAssetFiles(fileName1 : str, fileName2 : str) -> None:
             print(f"    File 1: index = {file1.Index} file offset = {file1.FileOffset} file length = {file1.FileLength}")
             print(f"    File 2: index = {file2.Index} file offset = {file2.FileOffset} file length = {file2.FileLength}")
 
-            if file1.Index != file2.Index or file1.FileOffset != file2.FileOffset or file1.FileLength != file2.FileLength:
-                raise Exception("file mismatch")
+            if file1.Index != file2.Index:
+                print("        File1.Index != File2.Index")
+            if file1.FileOffset != file2.FileOffset:
+                print("        File1.FileOffset != File2.FileOffset")
+            if file1.FileLength != file2.FileLength:
+                print("        File1.FileLength != File2.FileLength")
             
             if fileIdx == 0:
                 with open(f"{fileName2}.bin", "wb") as f:
@@ -75,19 +81,22 @@ def CompareAssetFiles(fileName1 : str, fileName2 : str) -> None:
 
             # compare file length
             if len(file1.RawData) != len(file2.RawData):
-                print(f"*** file length mismatch: {len(file1.RawData)} != {len(file2.RawData)}")
+                print(f"        *** file length mismatch: {len(file1.RawData)} != {len(file2.RawData)}")
             
             # compare file content
+            count = 0
             for idx in range(len(file1.RawData)):
                 b1 = file1.RawData[idx]
                 b2 = file2.RawData[idx]
 
                 if b1 != b2:
+                    if count > 4:
+                        print("        ...")
+                        break
+
                     print(f"        *** POS ${idx:06X} file 1: ${b1:02X} file 2: ${b2:02X}")
+                    count += 1
 
 if __name__ == "__main__":
 
-    #CompareMapdFiles("assets/TestEmpty.lpm", "assets/TestAll.lpm")
-    CompareAssetFiles("assets/TestEmpty.lpm", "assets/Test_2_2.lpm")
-    #CompareMapdFiles("assets/TestEmpty.lpm", "assets/Test_3_2.lpm")
-    #CompareMapdFiles("assets/TestEmpty.lpm", "assets/Test_2_3.lpm")
+    CompareAssetFiles(sys.argv[1], sys.argv[2])
