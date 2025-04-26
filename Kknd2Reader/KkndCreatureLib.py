@@ -191,7 +191,7 @@ class LibraryEntry:
         pixelDataOffset = int.from_bytes(data[pos + 10 : pos + 14], "little")
         bitmapInfoHeaderSize = int.from_bytes(data[pos + 14 : pos + 18], "little")
         bitmapWidth = int.from_bytes(data[pos + 18 : pos + 22], "little")
-        bitmapHeight = int.from_bytes(data[pos + 22 : pos + 26], "little")
+        bitmapHeight = int.from_bytes(data[pos + 22 : pos + 26], "little", signed=True)
         bitmapBitCount = int.from_bytes(data[pos + 28 : pos + 30], "little")
         bitmapCompression = int.from_bytes(data[pos + 30 : pos + 34], "little")
         bitmapSizeImage = int.from_bytes(data[pos + 34 : pos + 38], "little")
@@ -205,7 +205,7 @@ class LibraryEntry:
 
         bitmapRowWidthInBytes = math.ceil(bitmapWidth / 4.0) * 4
 
-        if bitmapRowWidthInBytes * bitmapHeight != bitmapSizeImage:
+        if bitmapRowWidthInBytes * abs(bitmapHeight) != bitmapSizeImage:
             raise Exception(f"Invalid BMP bitmap size: width = {bitmapWidth} height = {bitmapHeight} bitmap size = {bitmapSizeImage}")
         
         if bitmapInfoHeaderSize != 40:
@@ -233,14 +233,13 @@ class LibraryEntry:
         imgBuffer = bytearray()
         alphaBuffer = bytearray()
 
-        pixelIdx = 0
-        for _ in range(bitmapHeight):
-            for column in range(bitmapRowWidthInBytes):
-                pixel = pixelData[pixelIdx]
-                pixelIdx += 1
+        for row in range(abs(bitmapHeight)):
 
-                if column >= bitmapWidth:
-                    continue
+            r = bitmapHeight - row - 1 if bitmapHeight > 0 else row
+            pixelDataRow = pixelData[r * bitmapRowWidthInBytes : (r + 1) * bitmapRowWidthInBytes]
+
+            for column in range(bitmapWidth):
+                pixel = pixelDataRow[column]
 
                 color = palette[pixel]
                 alpha = 0xFF if pixel != 0 else 0x00
@@ -250,9 +249,8 @@ class LibraryEntry:
                 imgBuffer.append((color >> 0) & 0xFF)
                 alphaBuffer.append(alpha)
         
-        self.Image = wx.ImageFromBuffer(bitmapWidth, bitmapHeight, imgBuffer, alphaBuffer)
-
-        #self.Image.SaveFile(f"{self.Name}.png", wx.BITMAP_TYPE_PNG)
+        self.Image = wx.ImageFromBuffer(bitmapWidth, bitmapHeight, imgBuffer, alphaBuffer) # type: ignore
+        # self.Image.SaveFile(f"{self.Name}.png", wx.BITMAP_TYPE_PNG)
 
         pos += bitmapSizeImage
 
@@ -309,4 +307,7 @@ class CreatureLibrary:
         return entryList
     
 
+if __name__ == "__main__":
+    cl = CreatureLibrary()
+    cl.ReadLibraryFile("assets/creature.klb")
 
