@@ -112,10 +112,7 @@ class LibraryEntry:
     Name : str          
 
     # the creature image
-    Image : wx.Image
-
-    # the raw BMP image
-    BmpImageData : bytes
+    Image : wx.Image | None
 
     # unknwon metadata
     Metadata : bytes    
@@ -164,6 +161,8 @@ class LibraryEntry:
 
         if hasBmpFile != 0:
             pos = self.__ParseBitmap(data, pos)
+        else:
+            self.Image = None
 
         return pos
 
@@ -185,7 +184,6 @@ class LibraryEntry:
             raise Exception(f"missing magic number at BMP start (position {pos})")
 
         fileSize = int.from_bytes(data[pos + 2 : pos + 6], "little")
-        self.BmpImageData = data[pos : pos + fileSize]
 
         # read bitmap header
         pixelDataOffset = int.from_bytes(data[pos + 10 : pos + 14], "little")
@@ -250,7 +248,6 @@ class LibraryEntry:
                 alphaBuffer.append(alpha)
         
         self.Image = wx.ImageFromBuffer(bitmapWidth, bitmapHeight, imgBuffer, alphaBuffer) # type: ignore
-        # self.Image.SaveFile(f"{self.Name}.png", wx.BITMAP_TYPE_PNG)
 
         pos += bitmapSizeImage
 
@@ -310,4 +307,10 @@ class CreatureLibrary:
 if __name__ == "__main__":
     cl = CreatureLibrary()
     cl.ReadLibraryFile("assets/creature.klb")
+
+    for entry in cl.EntryList:
+        if entry.Image is None:
+            continue
+
+        entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG)
 
