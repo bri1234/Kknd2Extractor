@@ -195,6 +195,7 @@ class FrameMain(wx.Frame):
     @staticmethod
     def RenderBitmapFromLayer(map : mapd.MapdFile, layerIndex : int) -> wx.Bitmap:
         """ Renders a bitmap from a layer.
+            (This works only on little endian architecture because of numpy Uint32 ABGR values.)
 
         Args:
             map (mapd.MapdFile): The map with the layers.
@@ -204,18 +205,8 @@ class FrameMain(wx.Frame):
             wx.Bitmap: The rendered bitmap.
         """
         layer = map.LayerList[layerIndex]
-        imageData = map.RenderLayer(layerIndex)
-
-        data = bytearray()
-
-        for row in range(layer.MapHeightInPixels):
-            for column in range(layer.MapWidthInPixels):
-                argb = imageData[column, row]
-
-                data.append((argb >> 16) & 0xFF)     # red
-                data.append((argb >> 8) & 0xFF)      # green
-                data.append(argb & 0xFF)             # blue
-                data.append((argb >> 24) & 0xFF)     # alpha
+        imageData = map.RenderLayerUint32Abgr(layerIndex)
+        data = imageData.transpose().tobytes()
 
         bitmap = wx.Bitmap.FromBufferRGBA(layer.MapWidthInPixels, layer.MapHeightInPixels, data)
         return bitmap

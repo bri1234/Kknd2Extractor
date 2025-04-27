@@ -35,24 +35,13 @@ class MapdColorPalette:
     """
 
     # 4 byte RGB color
-    Colors : list[int]
+    ColorsRGB : list[int]
+    ColorsBGR : list[int]
 
     def __init__(self) -> None:
-        self.Colors = []
+        self.ColorsRGB = []
+        self.ColorsBGR = []
 
-    def GetColorsBytearray(self) -> bytearray:
-        """ Converts the colors into a byte array.
-
-        Returns:
-            bytearray: The colors as little endian byte array.
-        """
-        b = bytearray()
-
-        for color in self.Colors:
-            b.extend(color.to_bytes(4, "little"))
-
-        return b
-    
     def ReadPalette(self, data : bytearray, palettePosition : int) -> None:
         """ Reads the color palette from the KKN2 data and stores it internally as a list of RGB values.
 
@@ -61,7 +50,8 @@ class MapdColorPalette:
             palettePosition (int): The position of the color palette in the data buffer.
         """
 
-        self.Colors = []
+        self.ColorsRGB = []
+        self.ColorsBGR = []
         numberOfColors = GetUInt32LE(data, palettePosition)
         colorPosition = palettePosition + 4
 
@@ -73,8 +63,11 @@ class MapdColorPalette:
             green = ((color16 & 0x03E0) >> 2) & 0xFF
             blue = ((color16 & 0x001F) << 3) & 0xFF
 
-            color24 = (red << 16) | (green << 8) | blue
-            self.Colors.append(color24)
+            colorRgb = (red << 16) | (green << 8) | blue
+            colorBgr = (blue << 16) | (green << 8) | red
+
+            self.ColorsRGB.append(colorRgb)
+            self.ColorsBGR.append(colorBgr)
 
 class MapdTile:
     """ This class stores the pixel data of a tile.
@@ -88,6 +81,9 @@ class MapdTile:
 
     # the tile height in pixels
     Height : int
+
+    # the rendered tile as numpyarray
+    TileImage : npt.NDArray[np.uint32]
 
     def __init__(self, widthInPixels : int = 0, heightInPixels : int = 0) -> None:
         """ Creates a new tile.
@@ -124,6 +120,28 @@ class MapdTile:
         self.Width = tileWidth
         self.Height = tileHeight
         self.Pixels = fileData[tileOffset : tileOffset + tileWidth * tileHeight]
+
+    def RenderTileUInt32Abgr(self, colorPalette : MapdColorPalette) -> None:
+        """ Renders the tile as ABGR data.
+        """
+
+        colorsBgr = colorPalette.ColorsBGR
+        pixels = np.zeros((self.Width, self.Height), np.uint32)
+        pixelIdx = 0
+
+        for tilePixelRow in range(self.Height):
+            for tilePixelColumn in range(self.Width):
+                pixel = self.Pixels[pixelIdx]
+                pixelIdx += 1
+                if pixel >= len(colorsBgr):
+                    raise Exception(f"Can not render imager, invalid pixel value: {pixel}")
+
+                # pixel is transparent if pixel value is 0
+                
+                pixelAbgrColor = colorsBgr[pixel] | 0xFF000000 if pixel != 0 else 0x00000000
+                pixels[tilePixelColumn, tilePixelRow] = pixelAbgrColor
+
+        self.TileImage = pixels
 
 class MapdTerrainAttributes:
     """ This class stores the terrain attributes for the layer tiles.
@@ -308,33 +326,28 @@ class MapdLayer:
         if self.MapHeightInPixels != self.TileHeightInPixels * self.MapHeightInTiles:
             raise Exception(f"Error map height is invalid!")
         
-    def RenderImageUInt32Argb(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
-        """ Renders the layer as ARGB data.
+    def RenderImageUInt32Abgr(self, colorPalette : MapdColorPalette) -> npt.NDArray[np.uint32]:
+        """ Renders the layer as ABGR data.
 
         Returns:
             npt.NDArray[np.uint32]: The layer ARGB data in a 2D array [Width, Height].
         """
 
-        colors = colorPalette.Colors
-        pixels = np.zeros((self.MapWidthInPixels, self.MapHeightInPixels), np.uint32)
+        for tile in self.TileList.values():
+            tile.RenderTileUInt32Abgr(colorPalette)
 
+        pixels = np.zeros((self.MapWidthInPixels, self.MapHeightInPixels), np.uint32)
+        tileWidth = self.TileWidthInPixels
+        tileHeight = self.TileHeightInPixels
+        
         for tileRow in range(self.MapHeightInTiles):
-            layerPixelRow = tileRow * self.TileHeightInPixels
+            layerPixelRow = tileRow * tileHeight
 
             for tileColumn in range(self.MapWidthInTiles):
-                layerPixelColumn = tileColumn * self.TileWidthInPixels
+                layerPixelColumn = tileColumn * tileWidth
                 tile = self.GetTile(tileColumn, tileRow)
 
-                for tilePixelRow in range(tile.Height):
-                    for tilePixelColumn in range(tile.Width):
-                        pixel = tile.GetPixel(tilePixelColumn, tilePixelRow)
-                        if pixel >= len(colors):
-                            raise Exception(f"Can not render imager, invalid pixel value: {pixel}")
-
-                        # pixel is transparent if pixel value is 0
-                        
-                        pixelArgbColor = colors[pixel] | 0xFF000000 if pixel != 0 else 0x00000000
-                        pixels[layerPixelColumn + tilePixelColumn, layerPixelRow + tilePixelRow] = pixelArgbColor
+                pixels[layerPixelColumn : layerPixelColumn + tileWidth, layerPixelRow : layerPixelRow + tileHeight] = tile.TileImage
 
         return pixels
 
@@ -389,15 +402,15 @@ class MapdFile:
     def __CheckImage(layer : MapdLayer, palette : MapdColorPalette) -> None:
         """ Do some plausebility checks with the image data.
         """
-        colors = palette.Colors
+        colors = palette.ColorsRGB
 
         for tile in layer.TileList.values():
             for pixel in tile.Pixels:
                 if pixel < 0 or pixel >= len(colors):
                     raise Exception("Image invalid pixel data")
             
-    def RenderLayer(self, layerIndex : int) -> npt.NDArray[np.uint32]:
-        """ Renders the layer as RGB data.
+    def RenderLayerUint32Abgr(self, layerIndex : int) -> npt.NDArray[np.uint32]:
+        """ Renders the layer as ABGR color data.
 
         Args:
             layerIndex (int): The layer with the index in the list of layers to be rendered.
@@ -405,7 +418,7 @@ class MapdFile:
         Returns:
             npt.NDArray[np.uint32]: The layer RGB data in a 2D array [Width, Height].
         """
-        return self.LayerList[layerIndex].RenderImageUInt32Argb(self.ColorPalette)
+        return self.LayerList[layerIndex].RenderImageUInt32Abgr(self.ColorPalette)
 
 def ReadMaps(fileName : str) -> list[MapdFile]:
     """ Reads all MAPD files from a KKND2 asset file container.

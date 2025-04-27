@@ -28,7 +28,7 @@ python3 MapViewer.py
 (python modules needed: wx, numpy)
 
 - Use "File -> Open map file" to open single or multiplayer maps. (*.lpm or *.lps)
-  (it takes a long time to load the map because python is so slow)
+  (loading the map may take some time because python is slow)
 - Use "View" to show or hide the different layers.
 - Use "Export -> Export map to JSON + PNG" to export the map to a JSON file and two PNG images for bottom and top layer.
   (it takes also some seconds to finish the export)
