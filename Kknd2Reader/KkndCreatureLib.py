@@ -260,10 +260,10 @@ class CreatureLibrary:
     """ The content of the creature library.
     """
 
-    EntryList : list[LibraryEntry]
-
+    EntryList : dict[int, LibraryEntry]
+    
     def __init__(self) -> None:
-        self.EntryList = []
+        self.EntryList = {}
 
     def ReadLibraryFile(self, fileName : str) -> None:
         """ Reads the content of the KKND2 creature library.
@@ -278,14 +278,14 @@ class CreatureLibrary:
         self.EntryList = self.__ReadLibraryEntries(data)
 
     @staticmethod
-    def __ReadLibraryEntries(data : bytes) -> list[LibraryEntry]:
+    def __ReadLibraryEntries(data : bytes) -> dict[int, LibraryEntry]:
         """ Reads the library entries
 
         Args:
             data (bytes): The raw file data.
 
         Returns:
-            ist[LibraryEntry]: List of all creature library entries.
+            list[LibraryEntry]: List of all creature library entries.
         """
         # library data starts with a magic number
         magic = int.from_bytes(data[0 : 4])
@@ -295,11 +295,13 @@ class CreatureLibrary:
         numberOfEntries = int.from_bytes(data[4 : 6], "little")
         pos = 6
 
-        entryList : list[LibraryEntry] = []
+        entryList : dict[int, LibraryEntry] = {}
+
         for _ in range(numberOfEntries):
             entry = LibraryEntry()
             pos = entry.ReadLibraryEntry(data, pos)
-            entryList.append(entry)
+
+            entryList[entry.Id] = entry
 
         return entryList
     
@@ -308,9 +310,9 @@ if __name__ == "__main__":
     cl = CreatureLibrary()
     cl.ReadLibraryFile("assets/creature.klb")
 
-    for entry in cl.EntryList:
+    for entry in cl.EntryList.values():
         if entry.Image is None:
             continue
 
-        entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG)
+        entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG) # type: ignore
 
