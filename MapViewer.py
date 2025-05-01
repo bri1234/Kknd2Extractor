@@ -303,11 +303,17 @@ class FrameMain(wx.Frame):
         dc.Clear()
 
         for entity in cplcFile.EntityList:
-            entityBmp = wx.Bitmap(entity.Image)
-            x = entity.X - entity.Image.Width // 2
-            y = entity.Y - entity.Image.Height // 2
-        
-            dc.DrawBitmap(entityBmp, x, y)
+            if entity.Image is None:
+                r = 10
+                x = entity.X - r
+                y = entity.Y - r
+                dc.DrawCircle(x, y, r)
+            else:
+                entityBmp = wx.Bitmap(entity.Image)
+                x = entity.X - entity.Image.Width // 2
+                y = entity.Y - entity.Image.Height // 2
+            
+                dc.DrawBitmap(entityBmp, x, y)
 
         dc.SelectObject(wx.NullBitmap)
         return bmp

@@ -98,11 +98,9 @@ class CplcFile:
 
         entity.Id = GetUInt8(fileData, entityPos)
 
-        if self.__creatureLib is not None:
-            if entity.Id not in self.__creatureLib.EntryList:
-                raise Exception(f"Unknown entity with Id {entity.Id}")
-            
+        if (self.__creatureLib is not None) and (entity.Id in self.__creatureLib.EntryList):
             creatureLibEntry = self.__creatureLib.EntryList[entity.Id]
+            
             entity.IsOptional = creatureLibEntry.IsOptional
             entity.Name = creatureLibEntry.Name
             entity.Image = creatureLibEntry.Image
