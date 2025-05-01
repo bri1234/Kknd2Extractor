@@ -497,7 +497,7 @@ class MobdAnimation:
 
 class MobdFile:
     """ This class represents the contents of a MOBD file.
-        A MOBD file consists of animatations.
+        A MOBD file consists of animations.
     """
 
     AnimationList : list[MobdAnimation]
@@ -523,7 +523,7 @@ class MobdFile:
         ...
         4 bytes     0xFFFFFFFF          end of animation
         ...
-        4 bytes     0x00000000          no firther animations
+        4 bytes     0x00000000          no further animations
         """
 
         animationNumber = 0

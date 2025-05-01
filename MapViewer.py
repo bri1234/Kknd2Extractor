@@ -304,8 +304,8 @@ class FrameMain(wx.Frame):
 
         for entity in cplcFile.EntityList:
             entityBmp = wx.Bitmap(entity.Image)
-            x = int(entity.X - entity.Image.Width / 2)
-            y = int(entity.Y - entity.Image.Height / 2)
+            x = entity.X - entity.Image.Width // 2
+            y = entity.Y - entity.Image.Height // 2
         
             dc.DrawBitmap(entityBmp, x, y)
 
