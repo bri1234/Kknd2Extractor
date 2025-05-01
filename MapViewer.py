@@ -34,17 +34,29 @@ from pathlib import Path
 
 import Kknd2Reader.KkndFileMapd as mapd
 import Kknd2Reader.TerrainAttributes as ta
+import Kknd2Reader.KkndFileCplc as cplc
 import Kknd2Reader.PrettyJson as pjson
+from Kknd2Reader.KkndCreatureLib import CreatureLibrary
 
 class FrameMain(wx.Frame):
     """ The main window.
     """
 
+    __creatureLibrary : CreatureLibrary | None
+
+    BitmapBottom : wx.Bitmap
+    BitmapTop : wx.Bitmap
+    BitmapAttributes : wx.Bitmap
+    BitmapEntities : wx.Bitmap
+
     def __init__(self):
         super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800))
 
         terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
+        creatureLibPath = os.path.join("assets", "creature.klb")
+
         self.__terrainAttributeIconList = FrameMain.__LoadTerrainAttributeIcons(terrainIconsPath)
+        self.__creatureLibrary = FrameMain.__LoadCreatureLib(creatureLibPath)
 
         self.__CreateMenuBar()
         self.__CreateWidgets()
@@ -67,6 +79,24 @@ class FrameMain(wx.Frame):
             terrainAttributeIconList.append(icon)
 
         return terrainAttributeIconList
+
+    @staticmethod
+    def __LoadCreatureLib(fileName : str) -> CreatureLibrary | None:
+        """ Loads the creature library if the file exists.
+
+        Args:
+            fileName (str): The creature library filename and path.
+
+        Returns:
+            CreatureLibrary | None: The creature library.
+        """
+        
+        if not os.path.isfile(fileName):
+            return None
+
+        creatureLib = CreatureLibrary()
+        creatureLib.ReadLibraryFile(fileName)
+        return creatureLib
 
     def __CreateWidgets(self) -> None:
         """ Creates the GUI.
@@ -108,6 +138,8 @@ class FrameMain(wx.Frame):
         self.__itemViewTopLayer.Check(True)
         self.__itemViewAttributes = menuView.AppendCheckItem(-1, "View attributes")
         self.__itemViewAttributes.Check(True)
+        self.__itemViewEntities = menuView.AppendCheckItem(-1, "View entities")
+        self.__itemViewEntities.Check(True)
 
         menuExport = wx.Menu()
         itemExportMap = menuExport.Append(-1, "Export map to JSON + PNG")
@@ -124,6 +156,7 @@ class FrameMain(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewBottomLayer)
         self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewTopLayer)
         self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewAttributes)
+        self.Bind(wx.EVT_MENU, self.OnVisibleLayerChanged, self.__itemViewEntities)
 
         self.Bind(wx.EVT_MENU, self.OnExportMap, itemExportMap)
 
@@ -179,15 +212,18 @@ class FrameMain(wx.Frame):
             with wx.BusyInfo("Please wait, loading ...", self):
                 maps = mapd.ReadMaps(mapFileName)
                 map = maps[0]
+                cplcFile = cplc.ReadCplcFile(mapFileName, self.__creatureLibrary)
 
                 self.BitmapBottom = FrameMain.RenderBitmapFromLayer(map, 0)
                 self.BitmapTop = FrameMain.RenderBitmapFromLayer(map, 1)
                 self.BitmapAttributes = FrameMain.RenderBitmapFromTerrainAttributes(map, self.__terrainAttributeIconList)
+                self.BitmapEntities = FrameMain.RenderBitmapFromEntities(map, cplcFile)
 
                 self.__UpdateViewLayersAndAttributes()
 
                 self.__mapFileName = mapFileName
                 self.__map = map
+                self.__cplcFile = cplcFile
 
         except Exception as err:
             self.ShowError(str(err))
@@ -245,7 +281,39 @@ class FrameMain(wx.Frame):
         dc.SelectObject(wx.NullBitmap)
         return bmp
 
-    def __RenderLayerView(self, bottomLayerVisible : bool, topLayerVisible : bool, attributesVisible : bool, transparentBackground : bool) -> wx.Bitmap:
+    @staticmethod
+    def RenderBitmapFromEntities(map : mapd.MapdFile, cplcFile : cplc.CplcFile) -> wx.Bitmap:
+        """ Renders the tile attributes view in a bitmap.
+
+        Args:
+            map (mapd.MapdFile): The map with the layers and tile attributes.
+            cplcFile (cplc.CplcFile): The CPLC file with the entities.
+
+        Returns:
+            wx.Bitmap: The attribute bitmap for the whole map.
+        """
+
+        layerBottom = map.LayerList[0]
+
+        bmp = wx.Bitmap(layerBottom.MapWidthInPixels, layerBottom.MapHeightInPixels, 32)
+
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        dc.SetBackground(wx.Brush(wx.WHITE, wx.BRUSHSTYLE_TRANSPARENT))
+        dc.Clear()
+
+        for entity in cplcFile.EntityList:
+            entityBmp = wx.Bitmap(entity.Image)
+            x = int(entity.X - entity.Image.Width / 2)
+            y = int(entity.Y - entity.Image.Height / 2)
+        
+            dc.DrawBitmap(entityBmp, x, y)
+
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
+
+    def __RenderLayerView(self, bottomLayerVisible : bool, topLayerVisible : bool, attributesVisible : bool,
+                          entitiesVisible : bool, transparentBackground : bool) -> wx.Bitmap:
         """ Renders layer and attributes view.
 
         Args:
@@ -275,6 +343,9 @@ class FrameMain(wx.Frame):
         if attributesVisible:
             dc.DrawBitmap(self.BitmapAttributes, 0, 0)
 
+        if entitiesVisible:
+            dc.DrawBitmap(self.BitmapEntities, 0, 0)
+
         dc.SelectObject(wx.NullBitmap)
 
         return bmp
@@ -285,6 +356,7 @@ class FrameMain(wx.Frame):
         bmp = self.__RenderLayerView(self.__itemViewBottomLayer.IsChecked(),
                                      self.__itemViewTopLayer.IsChecked(),
                                      self.__itemViewAttributes.IsChecked(),
+                                     self.__itemViewEntities.IsChecked(),
                                      False)
 
         self.__ImageControl.SetBitmap(bmp)
@@ -309,12 +381,12 @@ class FrameMain(wx.Frame):
 
         # export bottom layer as PNG
         fileNameBottomLayer = baseFileName + "_bottom.png"
-        bmpBottom = self.__RenderLayerView(True, False, False, True)
+        bmpBottom = self.__RenderLayerView(True, False, False, False, True)
         bmpBottom.SaveFile(fileNameBottomLayer, wx.BITMAP_TYPE_PNG)
 
         # export top layer as PNG
         fileNameTopLayer = baseFileName + "_top.png"
-        bmpTop = self.__RenderLayerView(False, True, False, True)
+        bmpTop = self.__RenderLayerView(False, True, False, False, True)
         bmpTop.SaveFile(fileNameTopLayer, wx.BITMAP_TYPE_PNG)
 
         layer = self.__map.LayerList[0]
@@ -326,6 +398,20 @@ class FrameMain(wx.Frame):
             for tileColumn in range(layer.MapHeightInTiles):
                 row.append(int(layer.TerrainAttributes.GetTerrainAttribute(tileColumn, tileRow)))
             attributeMapRows.append(pjson.JsonFlatList(row))
+
+        # create entity list
+        cplcFile = self.__cplcFile
+        entityList = []
+
+        for entity in cplcFile.EntityList:
+            entityJson = {
+                "Id" : entity.Id,
+                "IsOptional" : entity.IsOptional,
+                "Name" : entity.Name,
+                "X" : entity.X,
+                "Y" : entity.Y
+            }
+            entityList.append(entityJson)
 
         # create map informations
         info = {
@@ -339,7 +425,9 @@ class FrameMain(wx.Frame):
             "MapHeightInPixels" : layer.MapHeightInPixels,
 
             "TerrainAttributes" : { attr.name: attr.value for attr in ta.ETerrainAttribute },
-            "TerrainAttributeMapRows" : attributeMapRows
+            "TerrainAttributeMapRows" : attributeMapRows,
+
+            "EntityList" : entityList
         }
 
         # write JSON file

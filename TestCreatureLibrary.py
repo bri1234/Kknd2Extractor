@@ -24,32 +24,15 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-from Kknd2Reader.KkndFileCompression import UncompressFile
-from Kknd2Reader.KkndFileContainer import ReadFileTypeList
-from Kknd2Reader.KkndFileCplc import CplcFile
 from Kknd2Reader.KkndCreatureLib import CreatureLibrary
+import wx # type: ignore
 
-creatureLibrary = CreatureLibrary()
-creatureLibrary.ReadLibraryFile("assets/creature.klb")
+cl = CreatureLibrary()
+cl.ReadLibraryFile("assets/creature.klb")
 
-cplcFileList : list[CplcFile] = []
-
-data, _, _ = UncompressFile("assets/multiplayermap/mlti_07.lpm")
-# data, _, _ = UncompressFile("assets/singleplayermap/robo_03.lps")
-
-fileTypeList, _ = ReadFileTypeList(data)
-for fileType in fileTypeList:
-    if fileType.FileType != "CPLC":
+for entry in cl.EntryList.values():
+    if entry.Image is None:
         continue
-    
-    for file in fileType.FileList:
-        cplcFile = CplcFile(creatureLibrary)
-        cplcFile.ReadCplcFile(file.RawData, file.FileOffset)
-        cplcFileList.append(cplcFile)
 
-print(len(cplcFileList))
-
-for entity in cplcFileList[0].EntityList:
-    print(f"Type: {entity.Id} Name: Is optional: {entity.IsOptional} {entity.Name} X={entity.X} Y={entity.Y}")
-
+    entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG) # type: ignore
 

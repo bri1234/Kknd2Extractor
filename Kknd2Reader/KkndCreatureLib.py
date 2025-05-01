@@ -24,6 +24,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
+from .DataBuffer import GetUInt32LE, GetInt32LE, GetUInt32BE, GetUInt16LE, GetUInt16BE, GetUInt8
 import math
 import wx # type: ignore
 
@@ -78,19 +79,19 @@ class LibraryEntryProperty:
         """
         self.Name, pos = ReadPascalString(data, pos)
 
-        propertyType = int.from_bytes(data[pos : pos + 1])
+        propertyType = GetUInt8(data, pos)
         pos += 1
 
         if propertyType in (1, 2, 3):
             self.Metadata = data[pos : pos + 12]
             pos += 12
 
-            arrayLength = int.from_bytes(data[pos : pos + 2], "little")
+            arrayLength = GetUInt16LE(data, pos)
             pos += 2
 
             for _ in range(arrayLength):
                 arrayItemName, pos = ReadPascalString(data, pos)
-                arrayItemValue = int.from_bytes(data[pos : pos + 4], "little")
+                arrayItemValue = GetUInt32LE(data, pos)
                 self.Values[arrayItemName] = arrayItemValue
 
                 pos += 4
@@ -107,6 +108,9 @@ class LibraryEntry:
     """
     # the creature ID
     Id : int            
+
+    # true if the entity is not always visible on the map, e.g. tech bunkers
+    IsOptional : bool
 
     # the creature name
     Name : str          
@@ -129,34 +133,37 @@ class LibraryEntry:
         """
 
         # each library entry starts with a magic number
-        magic = int.from_bytes(data[pos : pos + 4])
+        magic = GetUInt32BE(data, pos)
         if magic != MAGIC_ENTRY:
             raise Exception(f"missing magic number at entry start (position {pos})")
         pos += 4
 
         # the entry ID
-        self.Id = int.from_bytes(data[pos : pos + 2], "little")
-        pos += 2
+        self.Id = GetUInt8(data, pos)
+        pos += 1
+
+        self.IsOptional = GetUInt8(data, pos) != 0
+        pos += 1
 
         # the entry Name
         self.Name, pos = ReadPascalString(data, pos)
 
         # unknown Metadata
-        lengthMetadata = int.from_bytes(data[pos : pos + 2], "little")
+        lengthMetadata = GetUInt16LE(data, pos)
         pos += 2
 
         self.Metadata = data[pos : pos + lengthMetadata + 6]
         pos += lengthMetadata + 6
 
         # number of creature properties
-        numberOfProperties = int.from_bytes(data[pos : pos + 2], "little")
+        numberOfProperties = GetUInt16LE(data, pos)
         pos += 2
 
         for _ in range(numberOfProperties):
             property = LibraryEntryProperty()
             pos = property.ReadProperty(data, pos)
 
-        hasBmpFile = int.from_bytes(data[pos : pos + 1])
+        hasBmpFile = GetUInt8(data, pos)
         pos += 1
 
         if hasBmpFile != 0:
@@ -179,22 +186,21 @@ class LibraryEntry:
         startPos = pos
 
         # it is a normal BMP file
-        magic = int.from_bytes(data[pos : pos + 2])
+        magic = GetUInt16BE(data, pos)
         if magic != MAGIC_BMP:
             raise Exception(f"missing magic number at BMP start (position {pos})")
 
-        fileSize = int.from_bytes(data[pos + 2 : pos + 6], "little")
+        fileSize = GetUInt32LE(data, pos + 2)
 
         # read bitmap header
-        pixelDataOffset = int.from_bytes(data[pos + 10 : pos + 14], "little")
-        bitmapInfoHeaderSize = int.from_bytes(data[pos + 14 : pos + 18], "little")
-        bitmapWidth = int.from_bytes(data[pos + 18 : pos + 22], "little")
-        bitmapHeight = int.from_bytes(data[pos + 22 : pos + 26], "little", signed=True)
-        bitmapBitCount = int.from_bytes(data[pos + 28 : pos + 30], "little")
-        bitmapCompression = int.from_bytes(data[pos + 30 : pos + 34], "little")
-        bitmapSizeImage = int.from_bytes(data[pos + 34 : pos + 38], "little")
-        bitmapColorUsed = int.from_bytes(data[pos + 46 : pos + 50], "little")
-        # bitmapColorImportant = int.from_bytes(data[pos + 50 : pos + 54], "little")
+        pixelDataOffset = GetUInt32LE(data, pos + 10)
+        bitmapInfoHeaderSize = GetUInt32LE(data, pos + 14)
+        bitmapWidth = GetUInt32LE(data, pos + 18)
+        bitmapHeight = GetInt32LE(data, pos + 22)
+        bitmapBitCount = GetUInt16LE(data, pos + 28)
+        bitmapCompression = GetUInt32LE(data, pos + 30)
+        bitmapSizeImage = GetUInt32LE(data, pos + 34)
+        bitmapColorUsed = GetUInt32LE(data, pos + 46)
 
         pos += 54
 
@@ -219,7 +225,7 @@ class LibraryEntry:
         palette : list[int] = []
 
         for _ in range(bitmapColorUsed):
-            colorRgb = int.from_bytes(data[pos : pos + 4], "little")
+            colorRgb = GetUInt32LE(data, pos)
             palette.append(colorRgb)
             pos += 4
 
@@ -288,11 +294,11 @@ class CreatureLibrary:
             list[LibraryEntry]: List of all creature library entries.
         """
         # library data starts with a magic number
-        magic = int.from_bytes(data[0 : 4])
+        magic = GetUInt32BE(data, 0)
         if magic != MAGIC_FILE:
             raise Exception("missing magic number at file start")
         
-        numberOfEntries = int.from_bytes(data[4 : 6], "little")
+        numberOfEntries = GetUInt16LE(data, 4)
         pos = 6
 
         entryList : dict[int, LibraryEntry] = {}
@@ -305,14 +311,4 @@ class CreatureLibrary:
 
         return entryList
     
-
-if __name__ == "__main__":
-    cl = CreatureLibrary()
-    cl.ReadLibraryFile("assets/creature.klb")
-
-    for entry in cl.EntryList.values():
-        if entry.Image is None:
-            continue
-
-        entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG) # type: ignore
 
