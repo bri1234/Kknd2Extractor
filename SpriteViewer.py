@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 
 Copyright (C) 2025  Torsten Brischalle
@@ -23,163 +25,162 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-from typing import Any
+import wx
 
-import tkinter as tk
-from tkinter import ttk
-import threading
+from Kknd2Reader.KkndFileCompression import UncompressFile
+from Kknd2Reader.KkndFileContainer import ReadFileTypeList
+from Kknd2Reader.KkndFileMobd import MobdFile
 
-import Kknd2Reader.KkndFileCompression as compression
-import Kknd2Reader.KkndFileContainer as container
-import Kknd2Reader.KkndFileMobd as mobd
+from pathlib import Path
 
-FileList : list[container.ContainerFile]
-PhotoImg : tk.PhotoImage
-ListboxFiles : tk.Listbox
-Progress : tk.IntVar
+class FrameMain(wx.Frame):
+    """ The main window.
+    """
 
-def SetPixel(img : tk.PhotoImage, x : int, y : int, colorRgb : int) -> None:
-    img.put( f"#{colorRgb & 0xFFFFFF:06X}", ( x, y ) )
+    def __init__(self):
+        super().__init__(None, title = "KKND2 Sprite Viewer", size = (1000, 800))
 
-def CalculateImageWidthAndHeight(fileList : list[container.ContainerFile]) -> tuple[int, int]:
-    width = 0
-    height = 0
+        self.__CreateMenuBar()
+        self.__CreateWidgets()
+        self.__LoadSprites()
 
-    for file in fileList:
-        print(f"File {file.FileName}")
-        mobdFile = mobd.MobdFile(file)
+    def __CreateWidgets(self) -> None:
+        """ Creates the GUI.
+        """
+        splitter = wx.SplitterWindow(self)
 
-        animationHeight = 0
-        for animation in mobdFile.AnimationList:
-            maxWidth, maxHeight = animation.GetMaxWidthAndHeight()
+        self.__listBox = wx.ListBox(splitter)
+        self.__listBox.Bind(wx.EVT_LISTBOX, self.OnSpriteSelected)
 
-            width = max(width, maxWidth * len(animation.FrameList))
-            animationHeight += maxHeight
+        self.__imageControl = wx.StaticBitmap(splitter)
 
-        height = max(height, animationHeight)
+        splitter.SplitVertically(self.__listBox, self.__imageControl)
+        splitter.SetMinimumPaneSize(250)
 
-    return width, height
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(splitter, 1, wx.EXPAND)
+        self.SetSizer(sizer)
 
-def DrawFrame(photoImg : tk.PhotoImage, frame : mobd.MobdFrame, offX : int, offY : int) -> None:
+    def __CreateMenuBar(self) -> None:
+        """ Creates the main menu.
+        """
 
-    data = frame.RenderImageUInt32()
-    dataStr : list[str] = []
+        menuFile = wx.Menu()
+        menuFile.AppendSeparator()
+        itemExit = menuFile.Append(-1, "Exit")
 
-    for row in range(frame.Image.Height):
-        dataStr.append("{")
+        menuExport = wx.Menu()
+        itemExport = menuExport.Append(-1, "Export to JSON")
 
-        for column in range(frame.Image.Width):
-            dataStr.append(f"#{data[column, row]:06X}")
+        menu = wx.MenuBar()
+        menu.Append(menuFile, "File")
+        menu.Append(menuExport, "Export")
+        self.SetMenuBar(menu)
 
-        dataStr.append("}")
+        self.Bind(wx.EVT_MENU, self.OnExit,  itemExit)
 
-    photoImg.put( " ".join(dataStr), ( offX, offY ) )
+        self.Bind(wx.EVT_MENU, self.OnExport, itemExport)
 
-def CreateFileAnimationsImage(photoImg : tk.PhotoImage, mobdFile : mobd.MobdFile) -> None:
-    global Progress
+    def OnExit(self, event) -> None:
+        """ Closes the application
+        """
+        self.Close(True)
 
-    Progress.set(0)
-    photoImg.blank()
+    def OnExport(self, event) -> None:
+        """ Exports the units data to JSON + PNG.
+        """
+        baseFileName = str(Path(self.__mapFileName).with_suffix(""))
+        self.ExportMap(baseFileName)
 
-    offY = 0
-    idx = 0
-    for animation in mobdFile.AnimationList:
-        idx += 1
-        print(f"Draw animation {idx}/{len(mobdFile.AnimationList)}")
+        dlg = wx.MessageDialog(None, f"Map exported to {baseFileName}.json", "Export finished", wx.OK | wx.ICON_INFORMATION)
+        dlg.ShowModal()
+        dlg.Destroy()
 
-        offX = 0
+    def OnSpriteSelected(self, event) -> None:
+        idx = int(event.Selection)
+        self.__ShowMobdFile(idx)
+
+    def __ShowMobdFile(self, fileIndex : int) -> None:
+        mobdFile = MobdFile(self.__fileList[fileIndex])
+        bmp = FrameMain.__CreateFileAnimationsImage(mobdFile)
+        self.__imageControl.SetBitmap(bmp)
+
+    @staticmethod
+    def __CalculateImageSize(mobdFile : MobdFile) -> tuple[int, int]:
+        imgWidth = 0
         imgHeight = 0
-        for frame in animation.FrameList:
-            img = frame.Image
 
-            DrawFrame(photoImg, frame, offX, offY)
+        for animation in mobdFile.AnimationList:
 
-            offX += img.Width
-            imgHeight = max(imgHeight, img.Height)
+            maxFrameHeight = 0
+            width = 0
+            for frame in animation.FrameList:
+                img = frame.Image
+                width += img.Width
+                maxFrameHeight = max(maxFrameHeight, img.Height)
 
-        offY += imgHeight
+            imgWidth = max(imgWidth, width)
+            imgHeight += maxFrameHeight
 
-        Progress.set(int(idx / len(mobdFile.AnimationList) * 100))
-
-def ShowMobdFile(fileIndex : int) -> None:
-    global FileList, PhotoImg, ListboxFiles
-
-    mobdFile = mobd.MobdFile(FileList[fileIndex])
-
-    CreateFileAnimationsImage(PhotoImg, mobdFile)
-
-    ListboxFiles.configure(state=tk.NORMAL)
-
-def ListBoxFileSelected(event : Any) -> None:
-    selection : int = event.widget.curselection()[0]
-    event.widget.configure(state=tk.DISABLED)
-    threading.Thread(target=ShowMobdFile, args=(selection,)).start()
-
-def BuildGui(window : tk.Tk, imgWidth : int, imgHeigth : int) -> tuple[tk.PhotoImage, tk.Listbox, tk.IntVar]:
-
-    window.columnconfigure(0, weight=1)
-    window.columnconfigure(1, weight=1)
-    window.columnconfigure(2, weight=1000)
-    window.columnconfigure(3, weight=1)
-    window.rowconfigure(0, weight=1000)
-    window.rowconfigure(1, weight=1)
-    window.rowconfigure(2, weight=1)
-
-    sbListboxV = tk.Scrollbar(window,orient="vertical")
-    sbListboxV.grid(column=0, row=0, sticky="NS")
-
-    listboxFiles = tk.Listbox(window, yscrollcommand = sbListboxV.set)
-    listboxFiles.grid(column=1, row=0, sticky="NSWE")
-    listboxFiles.bind("<<ListboxSelect>>", ListBoxFileSelected)
-
-    sbListboxV.config(command = listboxFiles.yview) # type: ignore
-
-    sbCanvasV = tk.Scrollbar(window,orient="vertical")
-    sbCanvasV.grid(column=3, row=0, sticky="NS")
-
-    sbCanvasH = tk.Scrollbar(window,orient="horizontal")
-    sbCanvasH.grid(column=2, row=1, sticky="WE")
-
-    canvas = tk.Canvas(window, bg="black", xscrollcommand=sbCanvasH.set, yscrollcommand=sbCanvasV.set, scrollregion=(0, 0, imgWidth, imgHeigth))
+        return imgWidth, imgHeight
     
-    photoImg = tk.PhotoImage(width=imgWidth, height=imgHeigth)
-    canvas.create_image((photoImg.width() / 2, photoImg.height() / 2), image=photoImg, state="normal") # type: ignore
-    
-    canvas.grid(column=2, row=0, sticky="NSWE")
+    @staticmethod
+    def __CreateFileAnimationsImage(mobdFile : MobdFile) -> wx.Bitmap:
 
-    sbCanvasV.config(command=canvas.yview) # type: ignore
-    sbCanvasH.config(command=canvas.xview) # type: ignore
-    
-    progressVar = tk.IntVar()
-    progress = ttk.Progressbar(window, orient="horizontal", maximum=100, variable=progressVar)
-    progress.grid(column=2, row=2, sticky="WE")
+        imgWidth, imgHeight = FrameMain.__CalculateImageSize(mobdFile)
+        bmp = wx.Bitmap(imgWidth, imgHeight, 32)
 
-    return photoImg, listboxFiles, progressVar
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        dc.SetBackground(wx.Brush(wx.WHITE, wx.BRUSHSTYLE_TRANSPARENT))
+        dc.Clear()
 
-def Main() -> None:
-    global FileList, PhotoImg, ListboxFiles, Progress
+        offsetY = 0
+        for animation in mobdFile.AnimationList:
+            offsetX = 0
+            maxFrameHeight = 0
+            for frame in animation.FrameList:
+                img = frame.Image
 
-    containerData, _, _ = compression.UncompressFile("assets/spritesheets/gamesprt.lpk")
-    fileTypeList, _ = container.ReadFileTypeList(containerData, "Kknd2Reader/gamesprt.lpk.json")
+                dc.DrawBitmap(img.Bmp, offsetX, offsetYf)
 
-    if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
-        raise Exception("Unexpected file type")
+                maxFrameHeight = max(maxFrameHeight, img.Height)
+                offsetX += img.Width
 
-    FileList = fileTypeList[0].FileList
-    
-    # imgWidth, imgHeight = CalculateImageWidthAndHeight(FileList)
-    imgWidth = 6500
-    imgHeight = 8800
+            offsetY += maxFrameHeight
 
-    window = tk.Tk()
-    PhotoImg, ListboxFiles, Progress = BuildGui(window, imgWidth, imgHeight)
-    
-    for file in FileList:
-        ListboxFiles.insert(tk.END, f"{file.FileNumber}: {file.FileName}")
-    
-    tk.mainloop()
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
+
+    def ShowError(self, err : str) -> None:
+        """ Shows an error message.
+
+        Args:
+            err (Exception): The error message.
+        """
+        dlg = wx.MessageDialog(None, err, "An error occurred ...", wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    def __LoadSprites(self) -> None:
+        containerData, _, _ = UncompressFile("assets/spritesheets/gamesprt.lpk")
+        fileTypeList, _ = ReadFileTypeList(containerData, "Kknd2Reader/gamesprt.lpk.json")
+
+        if len(fileTypeList) != 1 or fileTypeList[0].FileType != "MOBD":
+            raise Exception("Unexpected file type")
+
+        self.__fileList = fileTypeList[0].FileList
+        
+        for file in self.__fileList:
+            self.__listBox.Append(f"{file.FileNumber}: {file.FileName}")
 
 if __name__ == "__main__":
-    
-    Main()
+
+    app = wx.App()
+
+    frm = FrameMain()
+    frm.Show()
+
+    app.MainLoop()
+
 

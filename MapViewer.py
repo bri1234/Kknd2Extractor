@@ -50,7 +50,7 @@ class FrameMain(wx.Frame):
     BitmapEntities : wx.Bitmap
 
     def __init__(self):
-        super().__init__(None, wx.ID_ANY, "KKND2 Map Viewer", size = (1000, 800))
+        super().__init__(None, title = "KKND2 Map Viewer", size = (1000, 800))
 
         terrainIconsPath = os.path.join("Kknd2Reader", "TerrainAttributeIcons.png")
         creatureLibPath = os.path.join("assets", "creature.klb")
@@ -101,16 +101,16 @@ class FrameMain(wx.Frame):
     def __CreateWidgets(self) -> None:
         """ Creates the GUI.
         """
-        panel = wx.Panel(self, wx.ID_ANY)
+        panel = wx.Panel(self)
 
         scrollPanel = wxls.ScrolledPanel(panel, -1, style = wx.TAB_TRAVERSAL | wx.SUNKEN_BORDER)
         scrollPanel.SetAutoLayout(1)
         scrollPanel.SetupScrolling()
 
-        self.__ImageControl = wx.StaticBitmap(scrollPanel, wx.ID_ANY)
+        self.__imageControl = wx.StaticBitmap(scrollPanel)
 
         scrollPanelSizer = wx.BoxSizer(wx.VERTICAL)
-        scrollPanelSizer.Add(self.__ImageControl)
+        scrollPanelSizer.Add(self.__imageControl)
         scrollPanel.SetSizer(scrollPanelSizer)
 
         panelSizer = wx.BoxSizer(wx.VERTICAL)
@@ -365,13 +365,13 @@ class FrameMain(wx.Frame):
                                      self.__itemViewEntities.IsChecked(),
                                      False)
 
-        self.__ImageControl.SetBitmap(bmp)
+        self.__imageControl.SetBitmap(bmp)
 
         self.__panel.Layout()
         self.__panelSizer.Layout()
         self.__scrollPanel.Layout()
         self.__scrollPanelSizer.Layout()
-        self.__ImageControl.Layout()
+        self.__imageControl.Layout()
 
     def ExportMap(self, baseFileName : str) -> None:
         """ Exports the currently loaded map for use in other programs.
