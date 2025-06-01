@@ -118,8 +118,13 @@ class LibraryEntry:
     # the creature image
     Image : wx.Image | None
 
-    # unknwon metadata
+    # unknown metadata
     Metadata : bytes    
+
+    Palette : list[int]
+
+    def __init__(self) -> None:
+        self.Palette = []
 
     def ReadLibraryEntry(self, data : bytes, pos : int) -> int:
         """ Reads a library entry.
@@ -228,7 +233,9 @@ class LibraryEntry:
             colorRgb = GetUInt32LE(data, pos)
             palette.append(colorRgb)
             pos += 4
-
+        
+        self.Palette = palette
+        
         if pos != startPos + pixelDataOffset:
             raise Exception(f"invalid BMP palette and header size")
         

@@ -36,3 +36,9 @@ for entry in cl.EntryList.values():
 
     entry.Image.SaveFile(f"tests/Id {entry.Id} {entry.Name}.png", wx.BITMAP_TYPE_PNG) # type: ignore
 
+    paletteStr = ",".join([f"0x{c:08X}" for c in entry.Palette])
+    with open(f"tests/Id {entry.Id} {entry.Name} palette.py", "w") as file:
+        file.write("palette=[")
+        file.write(paletteStr)
+        file.write("]\n")
+

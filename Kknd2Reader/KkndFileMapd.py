@@ -138,7 +138,7 @@ class MapdTile:
 
                 # pixel is transparent if pixel value is 0
                 
-                pixelAbgrColor = colorsBgr[pixel] | 0xFF000000 if pixel != 0 else 0x00000000
+                pixelAbgrColor = (colorsBgr[pixel] | 0xFF000000) if pixel != 0 else 0x00000000
                 pixels[tilePixelColumn, tilePixelRow] = pixelAbgrColor
 
         self.TileImage = pixels
