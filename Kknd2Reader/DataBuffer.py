@@ -25,6 +25,10 @@ IN THE SOFTWARE.
 
 from io import BufferedReader
 
+def __CheckIndex(index : int) -> None:
+    if index < 0:
+        raise Exception(f"DataBuffer: index is less than zero!")
+    
 def ReadUInt32LE(file : BufferedReader) -> int:
     """ Reads a 32 bit unsigned integer (little endian) from a file.
 
@@ -59,6 +63,7 @@ def GetUInt8(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 1], signed=False)
 
 def GetUInt16LE(data : bytearray | bytes, index : int) -> int:
@@ -71,6 +76,7 @@ def GetUInt16LE(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 2], byteorder='little', signed=False)
 
 def GetUInt16BE(data : bytearray | bytes, index : int) -> int:
@@ -83,6 +89,7 @@ def GetUInt16BE(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 2], byteorder='big', signed=False)
 
 def GetInt32LE(data : bytearray | bytes, index : int) -> int:
@@ -95,6 +102,7 @@ def GetInt32LE(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 4], byteorder='little', signed=True)
 
 def GetUInt32LE(data : bytearray | bytes, index : int) -> int:
@@ -107,6 +115,7 @@ def GetUInt32LE(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 4], byteorder='little', signed=False)
 
 def GetUInt32BE(data : bytearray | bytes, index : int) -> int:
@@ -119,6 +128,7 @@ def GetUInt32BE(data : bytearray | bytes, index : int) -> int:
     Returns:
         int: The number.
     """
+    __CheckIndex(index)
     return int.from_bytes(data[index : index + 4], byteorder='big', signed=False)
 
 def GetString(data : bytearray | bytes, index : int, length : int) -> str:
@@ -132,7 +142,7 @@ def GetString(data : bytearray | bytes, index : int, length : int) -> str:
     Returns:
         str: The string.
     """
-
+    __CheckIndex(index)
     dataStr = data[index : index + length]
     return dataStr.decode("ASCII")
 
@@ -147,7 +157,7 @@ def GetStringReverse(data : bytearray, index : int, length : int) -> str:
     Returns:
         str: The string.
     """
-
+    __CheckIndex(index)
     dataStr = data[index : index + length]
     dataStr.reverse()
     return dataStr.decode("ASCII")

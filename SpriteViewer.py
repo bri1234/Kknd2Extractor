@@ -1,4 +1,3 @@
-# type: ignore
 
 """
 
@@ -30,7 +29,7 @@ import wx.lib.scrolledpanel as wxls
 
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList, ContainerFile
-from Kknd2Reader.KkndFileMobd import MobdFile, MobdFrame
+from Kknd2Reader.KkndFileMobd import MobdFile, SaveMobdFileStructureInfo
 
 from pathlib import Path
 
@@ -83,8 +82,8 @@ class FrameMain(wx.Frame):
         itemExit = menuFile.Append(-1, "Exit")
 
         menuMisc = wx.Menu()
-        itemExport = menuMisc.Append(-1, "Export image")
-        itemCreatePalette = menuMisc.Append(-1, "Create palette")
+        itemExportImageList = menuMisc.Append(-1, "Export image list")
+        itemExportMobdFileStructure = menuMisc.Append(-1, "Export Mobd file structure")
 
         menu = wx.MenuBar()
         menu.Append(menuFile, "File")
@@ -93,15 +92,15 @@ class FrameMain(wx.Frame):
 
         self.Bind(wx.EVT_MENU, self.OnExit,  itemExit)
 
-        self.Bind(wx.EVT_MENU, self.OnExport, itemExport)
-        self.Bind(wx.EVT_MENU, self.OnCreatePalette, itemCreatePalette)
+        self.Bind(wx.EVT_MENU, self.OnExportImageList, itemExportImageList)
+        self.Bind(wx.EVT_MENU, self.OnExportMobdFileStructure, itemExportMobdFileStructure)
 
     def OnExit(self, event) -> None:
         """ Closes the application
         """
         self.Close(True)
 
-    def OnExport(self, event) -> None:
+    def OnExportImageList(self, event) -> None:
         """ Exports the units data to JSON + PNG.
         """
         idx = int(self.__listBox.Selection)
@@ -109,123 +108,20 @@ class FrameMain(wx.Frame):
         mobdFile = MobdFile(self.__mobdFileList[idx])
         FrameMain.__UpdateBitmap(mobdFile)
 
-        bmp = mobdFile.AnimationList[4].FrameList[0].Bitmap
-        bmp.SaveFile(f"image{idx}.png", wx.BITMAP_TYPE_PNG)
+        animationIdx = 0
+        for animation in mobdFile.AnimationList:
+            frameIdx = 0
+            for frame in animation.FrameList:
+                bmp = frame.Bitmap
+                bmp.SaveFile(f"export image{idx}_{animationIdx}_{frameIdx}.png", wx.BITMAP_TYPE_PNG)
+                frameIdx += 1
 
-    @staticmethod
-    def ConvertColorsToPalette(colorIndexColors : dict[int, int]) -> list[int]:
-        palette : list[int] = [0] * 256
+            animationIdx += 1
 
-        for k in colorIndexColors:
-            palette[k] = colorIndexColors[k]
-
-        return palette
-    
-    @staticmethod
-    def CreateColorPalette(referenceFile : str, mobdFrame : MobdFrame) -> dict[int, int]:
-
-        width = mobdFrame.Image.Width
-        height = mobdFrame.Image.Height
-
-        img = wx.Image()
-        with open(referenceFile, "rb") as file:
-            img.LoadFile(file)
-
-        if img.GetWidth() != width or img.GetHeight() != height:
-            raise Exception("invalid img size")
-        
-        colorIndexColors : dict[int, int] = {}
-        colorIndexList : dict[int, bool] = {}
-
-        for column in range(width):
-            for row in range(height):
-                colorIndex = mobdFrame.Image.GetPixel(column, row)
-                if colorIndex == 0:
-                    continue
-                
-                colorIndexList[colorIndex] = True
-
-                a = img.GetAlpha(column, row)
-                if a == 0:
-                    continue
-
-                c = (img.GetRed(column, row) << 16) | (img.GetGreen(column, row) << 8) | img.GetBlue(column, row)
-
-                if colorIndex in colorIndexColors:
-                    if c != colorIndexColors[colorIndex]:
-                        raise Exception(f"different color for color index {colorIndex} at {column},{row}: old 0x{colorIndexColors[colorIndex]:08X} new 0x{c:08X}")
-                else:
-                    colorIndexColors[colorIndex] = c
-        
-        for colorIndex in colorIndexList.keys():
-            if colorIndex not in colorIndexColors:
-                raise Exception(f"missing color for color index {colorIndex}")
-
-        return colorIndexColors
-    
-    @staticmethod
-    def MergeColors(colors1 : dict[int, int], colors2 : dict[int, int]) -> dict[int, int]:
-
-        colors = colors1.copy()
-
-        for colorIndex in colors2:
-            c = colors2[colorIndex]
-
-            if colorIndex in colors:
-                if c != colors[colorIndex]:
-                    raise Exception(f"different color for color index {colorIndex}: old 0x{colors[colorIndex]:08X} new 0x{c:08X}")
-            else:
-                colors[colorIndex] = c
-
-        return colors
-
-    def OnCreatePalette(self, event) -> None:
-        mobdFile = MobdFile(self.__mobdFileList[108])
-        frame108 = mobdFile.AnimationList[5].FrameList[0]
-
-        mobdFile = MobdFile(self.__mobdFileList[102])
-        frame102 = mobdFile.AnimationList[4].FrameList[0]
-
-        colorsRed108 = FrameMain.CreateColorPalette("image108 colors red.png", frame108)
-        colorsRed102 = FrameMain.CreateColorPalette("image102 colors red.png", frame102)
-        colorsRed = FrameMain.MergeColors(colorsRed108, colorsRed102)
-        paletteRed = FrameMain.ConvertColorsToPalette(colorsRed)
-        FrameMain.PrintPalette(paletteRed)
-
-        colorsGreen108 = FrameMain.CreateColorPalette("image108 colors green.png", frame108)
-        colorsGreen102 = FrameMain.CreateColorPalette("image102 colors green.png", frame102)
-        colorsGreen = FrameMain.MergeColors(colorsGreen108, colorsGreen102)
-        paletteGreen = FrameMain.ConvertColorsToPalette(colorsGreen)
-        FrameMain.PrintPalette(paletteGreen)
-
-        colorsBlue108 = FrameMain.CreateColorPalette("image108 colors blue.png", frame108)
-        colorsBlue102 = FrameMain.CreateColorPalette("image102 colors blue.png", frame102)
-        colorsBlue = FrameMain.MergeColors(colorsBlue108, colorsBlue102)
-        paletteBlue = FrameMain.ConvertColorsToPalette(colorsBlue)
-        FrameMain.PrintPalette(paletteBlue)
-
-        FrameMain.DiffPalette(paletteRed, paletteGreen, paletteBlue)
-
-    @staticmethod
-    def PrintPalette(palette : list[int]) -> None:
-        print(",".join([f"0x{c:08X}" for c in palette]))
-        print()
-
-    @staticmethod
-    def DiffPalette(paletteRed : list[int], paletteGreen : list[int], paletteBlue : list[int]) -> None:
-        for idx in range(256):
-            r = paletteRed[idx]
-            g = paletteGreen[idx]
-            b = paletteBlue[idx]
-            if r == g and r == b:
-                continue
-
-            if r != g and r != b and g != b:
-                print(f"diff 3: {idx:3d} 0x{r:08X} 0x{g:08X} 0x{b:08X}")
-                continue
-
-            print(f"diff 2: {idx}")
-
+    def OnExportMobdFileStructure(self, event) -> None:
+        """ Exports the Mobd file structure.
+        """
+        SaveMobdFileStructureInfo("mobd file structure info.txt")
 
     def OnSpriteSelected(self, event) -> None:
         """ User has selected a new sprite.
@@ -326,7 +222,7 @@ class FrameMain(wx.Frame):
             self.__listBox.Append(f"{file.FileNumber}: {file.FileName}")
 
     @staticmethod
-    def __LoadSprites() -> list[MobdFile]:
+    def __LoadSprites() -> list[ContainerFile]:
         """ Load the sprites.
 
         Returns:
@@ -340,8 +236,6 @@ class FrameMain(wx.Frame):
 
         return fileTypeList[0].FileList
     
-
-
 if __name__ == "__main__":
 
     app = wx.App()
@@ -351,6 +245,4 @@ if __name__ == "__main__":
 
     app.MainLoop()
 
-# 7: 256, okay
-# 104: not okay
 
