@@ -11,3 +11,5 @@ tests
 *.xcf
 *.png
 Pics
+
+typings

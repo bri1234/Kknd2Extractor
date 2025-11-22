@@ -27,6 +27,7 @@ IN THE SOFTWARE.
 from Kknd2Reader.KkndFileMobd import MobdColorPalette
 from termcolor import cprint
 import colorsys
+import os
 
 def Rgb(rgb : int) -> tuple[int, int, int]:
     return (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 0) & 0xFF
@@ -61,11 +62,56 @@ def Debug() -> None:
             f.write(f"{idx:03} {red:06X},{gre:06X},{blu:06X},   {diff}\n")
 
             print(f"{idx:03}", end="")
-            cprint(f"\t{red:06X} {GetHsvStr(red)}", Rgb(red), end="")
-            cprint(f"\t{gre:06X} {GetHsvStr(gre)}", Rgb(gre), end="")
-            cprint(f"\t{blu:06X} {GetHsvStr(blu)}", Rgb(blu), end="")
+            cprint(f"\t{red:06X} {GetHsvStr(red)}", on_color=Rgb(red), end="")
+            cprint(f"\t{gre:06X} {GetHsvStr(gre)}", on_color=Rgb(gre), end="")
+            cprint(f"\t{blu:06X} {GetHsvStr(blu)}", on_color=Rgb(blu), end="")
             print(f"\t{diff}")
+
+def Debug2(folder : str) -> None:
+    print("START")
+
+    colorList24 = MobdColorPalette.ColorsSeries9BuildingsRgbRed
+    colorList15 : list[int] = []
+    colorList15Bytes : list[bytes] = []
+    colorList15Bytes2 : list[bytes] = []
+
+    for color24 in colorList24:
+        color15 = MobdColorPalette.ConvertRgb24To15(color24)
+
+        if color24 == 0 or color15 == 0:
+            continue
+
+        colorList15.append(color15)
+        colorList15Bytes.append(bytes([color15 & 0xFF, (color15 >> 8) & 0xFF]))
+
+    for idx in range(0, len(colorList15Bytes) - 1, 2):
+        colorBytes = colorList15Bytes[idx] + colorList15Bytes[idx + 1]
+        colorList15Bytes2.append(colorBytes)
+
+    founds : dict[str, int] = {}
+
+    for fileName in os.listdir(folder):
+        fullFileName = os.path.join(folder, fileName)
+        if not os.path.isfile(fullFileName):
+            continue
+        
+        print(f"test {fileName}")
+
+        with open(fullFileName, "rb") as file:
+            data = file.read()
+
+        count = 0
+        for colorBytes in colorList15Bytes2:
+            count += data.count(colorBytes)
+
+        print(count)
+        founds[fullFileName] = count
+
+    for item in founds:
+        print(f"{item} = {founds[item]}")
 
 if __name__ == "__main__":
 
     Debug()
+    # Debug2("/Daten1/kknd2/Kknd2MemoryDump")
+

@@ -30,6 +30,9 @@ from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList, ContainerFile
 from Kknd2Reader.KkndFileMobd import MobdFile, MobdFrame
 
+import collections
+import os
+
 def LoadSprites() -> list[ContainerFile]:
     """ Load the sprites.
 
@@ -44,15 +47,37 @@ def LoadSprites() -> list[ContainerFile]:
 
     return fileTypeList[0].FileList
 
+def GetMostCommonColors(colorIndexColors : dict[int, list[int]]) -> dict[int, int]:
+
+    mostCommonColorsDict : dict[int, int] = {}
+
+    for idx in colorIndexColors:
+        colorList = colorIndexColors[idx]
+        colorListCnt = collections.Counter(colorList)
+        mostCommonColors = colorListCnt.most_common(2)
+
+        if (len(mostCommonColors) > 1) and (mostCommonColors[0][1] < 3 * mostCommonColors[1][1] + 10):
+            print(f"color ignored: {mostCommonColors}")
+            continue
+        
+        mostCommonColorsDict[idx] = mostCommonColors[0][0]
+        pass
+
+    return mostCommonColorsDict
+
 def ConvertColorsToPalette(colorIndexColors : dict[int, int]) -> list[int]:
     palette : list[int] = [0] * 256
 
-    for k in colorIndexColors:
-        palette[k] = colorIndexColors[k]
+    for idx in colorIndexColors:
+        palette[idx] = colorIndexColors[idx]
 
     return palette
 
-def CreateColorPaletteForFrame(referenceFile : str, mobdFrame : MobdFrame) -> dict[int, int]:
+def PrintPalette(palette : list[int]) -> None:
+    print(",".join([f"0x{c:08X}" for c in palette]))
+    print()
+
+def CreateColorPaletteForFrame(referenceFile : str, mobdFrame : MobdFrame, colorIndexColors : dict[int, list[int]]) -> None:
 
     width = mobdFrame.Image.Width
     height = mobdFrame.Image.Height
@@ -64,170 +89,71 @@ def CreateColorPaletteForFrame(referenceFile : str, mobdFrame : MobdFrame) -> di
     if img.GetWidth() != width or img.GetHeight() != height:
         raise Exception("invalid img size")
     
-    colorIndexColors : dict[int, int] = {}
-    colorIndexList : dict[int, bool] = {}
-
     for column in range(width):
         for row in range(height):
-            if column == 25 and row == 15:
-                pass
 
             colorIndex = mobdFrame.Image.GetPixel(column, row)
             if colorIndex == 0:
                 continue
             
-            colorIndexList[colorIndex] = True
-
-            a = img.GetAlpha(column, row)
+            a = int(img.GetAlpha(column, row))
             if a == 0:
                 continue
 
-            c = (img.GetRed(column, row) << 16) | (img.GetGreen(column, row) << 8) | img.GetBlue(column, row)
+            color = int((img.GetRed(column, row) << 16) | (img.GetGreen(column, row) << 8) | img.GetBlue(column, row))
 
             if colorIndex in colorIndexColors:
-                if c != colorIndexColors[colorIndex]:
-                    raise Exception(f"file '{referenceFile}' different color for color index {colorIndex} at {column},{row}: old 0x{colorIndexColors[colorIndex]:08X} new 0x{c:08X}")
+                colorIndexColors[colorIndex].append(color)
             else:
-                colorIndexColors[colorIndex] = c
+                colorIndexColors[colorIndex] = [color]
     
-    for colorIndex in colorIndexList.keys():
-        if colorIndex not in colorIndexColors:
-            # raise Exception(f"missing color for color index {colorIndex}")
-            print(f"file '{referenceFile}' missing color for color index {colorIndex}")
-
-    return colorIndexColors
-
-def GetMissingColors(colors : dict[int, int], mobdFile : MobdFile) -> list[int]:
-
-    missingColors : dict[int, bool] = {}
-
-    for animation in mobdFile.AnimationList:
-        for frame in animation.FrameList:
-
-            width = frame.Image.Width
-            height = frame.Image.Height
-
-            for column in range(width):
-                for row in range(height):
-
-                    if column == 25 and row == 15:
-                        pass
-
-                    colorIndex = frame.Image.GetPixel(column, row)
-                    if colorIndex == 0:
-                        continue
-
-                    if colorIndex not in colors:
-                        missingColors[colorIndex] = True
-
-                        # TODO: !!! print frame and animation index !!!!
-                        print(f"missing color: {column}, {row}: {colorIndex}")
-
-    return list(missingColors.keys())
-
-
-def MergeColors(colorsList : list[dict[int, int]]) -> dict[int, int]:
-
-    mergedColors : dict[int, int] = {}
-    
-    for colors in colorsList:
-        for colorIndex in colors:
-            c = colors[colorIndex]
-
-            if colorIndex in mergedColors:
-                if c != mergedColors[colorIndex]:
-                    raise Exception(f"!!! different color for color index {colorIndex}: old 0x{mergedColors[colorIndex]:08X} new 0x{c:08X}")
-            else:
-                mergedColors[colorIndex] = c
-
-    return mergedColors
-
-def PrintPalette(palette : list[int]) -> None:
-    print(",".join([f"0x{c:08X}" for c in palette]))
-    print()
-
-def DiffPalette(paletteRed : list[int], paletteGreen : list[int], paletteBlue : list[int]) -> None:
-    for idx in range(256):
-        r = paletteRed[idx]
-        g = paletteGreen[idx]
-        b = paletteBlue[idx]
-        if r == g and r == b:
-            continue
-
-        if r != g and r != b and g != b:
-            print(f"diff 3: {idx:3d} 0x{r:08X} 0x{g:08X} 0x{b:08X}")
-            continue
-
-        print(f"diff 2: {idx}")
-
-def CreatePaletteForFrames(imgList : list[tuple[int, int]], colorName : str) -> tuple[dict[int, int], list[int]]:
+def CreatePaletteForFrames(imgList : list[tuple[int, int]], colorName : str) -> tuple[dict[int, list[int]], list[int]]:
 
     mobdFileList = LoadSprites()
 
-    colorsList : list[dict[int, int]] = []
+    colorIndexColors : dict[int, list[int]] = {}
 
-    for fileIdx, frameIdx in imgList:
-        frame = MobdFile(mobdFileList[fileIdx]).AnimationList[frameIdx].FrameList[0]
-        colors = CreateColorPaletteForFrame(f"image{fileIdx} colors {colorName}.png", frame)
+    for fileIdx, animationIdx in imgList:
+        fileName = f"Pics/Survivors/export image{fileIdx}_{animationIdx}_0 {colorName}.png"
+        if not os.path.exists(fileName):
+            continue
 
-        # print("--------------------------------------------------------------------")
-        # print(sorted(colors.items()))
+        frame = MobdFile(mobdFileList[fileIdx]).AnimationList[animationIdx].FrameList[0]
+        CreateColorPaletteForFrame(fileName, frame, colorIndexColors)
+        
+    print(f"number of colors: {len(colorIndexColors)}")
 
-        colorsList.append(colors)
+    mostCommonColors = GetMostCommonColors(colorIndexColors)
+    palette = ConvertColorsToPalette(mostCommonColors)
 
-    cols = MergeColors(colorsList)
-
-    return cols, ConvertColorsToPalette(cols)
-
-def CheckPalette(fileIdxList : list[int], colors : dict[int, int]) -> None:
-    mobdFileList = LoadSprites()
-
-    for idx in fileIdxList:
-        missingCols = GetMissingColors(colors, MobdFile(mobdFileList[idx]))
-
-        print(f"  missing colors {idx}:")
-        print("      ", end="")
-        print(", ".join(str(c) for c in missingCols))
+    return colorIndexColors, palette
 
 def CreatePalette() -> None:
 
-    # imgList : list[tuple[int, int]] = [ (102, 4), (103, 4), (104, 4), (106, 5), (107, 4), (108, 5), (109, 4), (111, 4) ]
-    imgList : list[tuple[int, int]] = [ (106, 5) ]
+    imgList : list[tuple[int, int]] = [ (174, 4), (174, 6), (174, 7), (175, 4), (175, 6), (175, 7), (179, 4), (179, 6), (179, 7), (180, 1), (180, 7), (180, 8), (181, 4), (181, 6), (181, 7) ]
 
-    # print("create palette red")
-    # colorsRed, paletteRed = CreatePaletteForFrames(imgList, "red")
+    print("create palette red")
+    colorsRed, paletteRed = CreatePaletteForFrames(imgList, "red")
+    print("Palette red:")
+    PrintPalette(paletteRed)
 
     print("create palette green")
     colorsGreen, paletteGreen = CreatePaletteForFrames(imgList, "green")
-
-    # print("create palette blue")
-    # colorsBlue, paletteBlue = CreatePaletteForFrames(imgList, "blue")
-
-    # print("Palette red:")
-    # PrintPalette(paletteRed)
-
     print("Palette green:")
     PrintPalette(paletteGreen)
 
-    # print("Palette blue:")
-    # PrintPalette(paletteBlue)
-
-    # DiffPalette(paletteRed, paletteGreen, paletteBlue)
-
-    # check palette
-    # print("*** Check RED ***")
-    # CheckPalette(list(range(102, 112)), colorsRed)
-
-    print("*** Check GREEN ***")
-    # CheckPalette(list(range(102, 112)), colorsGreen)
-    CheckPalette(list(range(106, 107)), colorsGreen)
-
-    # print("*** Check BLUE ***")
-    # CheckPalette(list(range(102, 112)), colorsBlue)
-
+    print("create palette blue")
+    colorsBlue, paletteBlue = CreatePaletteForFrames(imgList, "blue")
+    print("Palette blue:")
+    PrintPalette(paletteBlue)
 
 def Main() -> None:
     CreatePalette()
 
 if __name__ == "__main__":
-    Main()
+    try:
+        Main()
+    except Exception as err:
+        print("ERROR:")
+        print(err)
+

@@ -1,4 +1,5 @@
-
+# type: ignore
+ 
 """
 
 Copyright (C) 2025  Torsten Brischalle
@@ -24,14 +25,18 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
 
-import wx
-import wx.lib.scrolledpanel as wxls
+import wx  
+import wx.lib.scrolledpanel as wxls  
 
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList, ContainerFile
-from Kknd2Reader.KkndFileMobd import MobdFile, SaveMobdFileStructureInfo
+from Kknd2Reader.KkndFileMobd import MobdFile, SaveMobdFileStructureInfo, MobdColorPalette
 
 from pathlib import Path
+from termcolor import cprint
+
+def Rgb(rgb : int) -> tuple[int, int, int]:
+    return (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 0) & 0xFF
 
 class FrameMain(wx.Frame):
     """ The main window.
@@ -39,7 +44,7 @@ class FrameMain(wx.Frame):
     __mobdFileList : list[ContainerFile]
 
     def __init__(self):
-        super().__init__(None, title = "KKND2 Sprite Viewer", size = (1000, 800))
+        super().__init__(None, title = "KKND2 Sprite Viewer", size = (1000, 800)) 
 
         self.__mobdFileList = FrameMain.__LoadSprites()
 
@@ -54,7 +59,7 @@ class FrameMain(wx.Frame):
         splitter = wx.SplitterWindow(self)
 
         self.__listBox = wx.ListBox(splitter)
-        self.__listBox.Bind(wx.EVT_LISTBOX, self.OnSpriteSelected)
+        self.__listBox.Bind(wx.EVT_LISTBOX, self.OnSpriteSelected) 
 
         scrollPanel = wxls.ScrolledPanel(splitter, -1, style = wx.TAB_TRAVERSAL | wx.SUNKEN_BORDER)
         scrollPanel.SetAutoLayout(1)
@@ -63,7 +68,7 @@ class FrameMain(wx.Frame):
         self.__imageControl = wx.StaticBitmap(scrollPanel)
 
         scrollPanelSizer = wx.BoxSizer(wx.VERTICAL)
-        scrollPanelSizer.Add(self.__imageControl)
+        scrollPanelSizer.Add(self.__imageControl) 
         scrollPanel.SetSizer(scrollPanelSizer)
 
         splitter.SplitVertically(self.__listBox, scrollPanel)
@@ -77,30 +82,36 @@ class FrameMain(wx.Frame):
         """ Creates the main menu.
         """
 
+        # create menu
         menuFile = wx.Menu()
         menuFile.AppendSeparator()
-        itemExit = menuFile.Append(-1, "Exit")
+        itemFileExit = menuFile.Append(-1, "Exit")
 
         menuMisc = wx.Menu()
-        itemExportImageList = menuMisc.Append(-1, "Export image list")
-        itemExportMobdFileStructure = menuMisc.Append(-1, "Export Mobd file structure")
+        itemMiscExportImageList = menuMisc.Append(-1, "Export image list")
+        itemMiscExportMobdFileStructure = menuMisc.Append(-1, "Export Mobd file structure")
+        itemMiscPrintPalette = menuMisc.Append(-1, "Print palette")
+        itemMiscTest = menuMisc.Append(-1, "Test")
 
         menu = wx.MenuBar()
         menu.Append(menuFile, "File")
         menu.Append(menuMisc, "Misc")
         self.SetMenuBar(menu)
 
-        self.Bind(wx.EVT_MENU, self.OnExit,  itemExit)
+        # create menu bindings
+        self.Bind(wx.EVT_MENU, self.OnExit,  itemFileExit)
 
-        self.Bind(wx.EVT_MENU, self.OnExportImageList, itemExportImageList)
-        self.Bind(wx.EVT_MENU, self.OnExportMobdFileStructure, itemExportMobdFileStructure)
+        self.Bind(wx.EVT_MENU, self.OnMiscExportImageList, itemMiscExportImageList)
+        self.Bind(wx.EVT_MENU, self.OnMiscExportMobdFileStructure, itemMiscExportMobdFileStructure)
+        self.Bind(wx.EVT_MENU, self.OnMiscPrintPalette, itemMiscPrintPalette)
+        self.Bind(wx.EVT_MENU, self.OnMiscTest, itemMiscTest)
 
     def OnExit(self, event) -> None:
         """ Closes the application
         """
         self.Close(True)
 
-    def OnExportImageList(self, event) -> None:
+    def OnMiscExportImageList(self, event) -> None:
         """ Exports the units data to JSON + PNG.
         """
         idx = int(self.__listBox.Selection)
@@ -118,10 +129,49 @@ class FrameMain(wx.Frame):
 
             animationIdx += 1
 
-    def OnExportMobdFileStructure(self, event) -> None:
+    def OnMiscExportMobdFileStructure(self, event) -> None:
         """ Exports the Mobd file structure.
         """
         SaveMobdFileStructureInfo("mobd file structure info.txt")
+
+    def OnMiscPrintPalette(self, event) -> None:
+        """ Prints the palette of the selected animation.
+        """
+        idx = int(self.__listBox.Selection)
+
+        mobdFile = MobdFile(self.__mobdFileList[idx])
+
+        for paletteIdx in MobdColorPalette.MobdColorPalettes:
+            palette : MobdColorPalette = MobdColorPalette.MobdColorPalettes[paletteIdx]
+            print(f"***** Palette @ {palette.PalettePosition} ")
+            colors = palette.ColorsRgb
+            for idx in range(len(colors)):
+                color = colors[idx]
+                cprint(f"{idx:03}\t{color:06X}", on_color=Rgb(color))
+
+    def OnMiscTest(self, event) -> None:
+        """ For testing purposes.
+        """
+        print("TEST")
+
+        mobdFileIdx = 0
+        for mobdFileData in self.__mobdFileList:
+            mobdFile = MobdFile(mobdFileData)
+            for animation in mobdFile.AnimationList:
+                for frame in animation.FrameList:
+                    palette = frame.ColorPalette
+                    if len(palette.ColorsRgb) == 256:
+                        
+                        count = 0
+                        for idx in range(256):
+                            if palette.ColorsRgb[idx] == MobdColorPalette.ColorsSeries9BuildingsRgbBlu[idx]:
+                                count += 1
+
+                        print(f"file {mobdFileIdx} animation {frame.AnimationIndex} frame {frame.FrameIndex} Count: {count}")
+
+            mobdFileIdx += 1
+
+        print("DONE")
 
     def OnSpriteSelected(self, event) -> None:
         """ User has selected a new sprite.
