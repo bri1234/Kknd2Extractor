@@ -56,7 +56,7 @@ def GetMostCommonColors(colorIndexColors : dict[int, list[int]]) -> dict[int, in
         colorListCnt = collections.Counter(colorList)
         mostCommonColors = colorListCnt.most_common(2)
 
-        if (len(mostCommonColors) > 1) and (mostCommonColors[0][1] < 3 * mostCommonColors[1][1] + 10):
+        if (len(mostCommonColors) > 1) and (mostCommonColors[0][1] < 1 * mostCommonColors[1][1] + 10):
             print(f"color ignored: {mostCommonColors}")
             continue
         
@@ -87,7 +87,7 @@ def CreateColorPaletteForFrame(referenceFile : str, mobdFrame : MobdFrame, color
         img.LoadFile(file)
 
     if img.GetWidth() != width or img.GetHeight() != height:
-        raise Exception("invalid img size")
+        raise Exception(f"invalid img size: {referenceFile} w={img.GetWidth()}/{width} h={img.GetHeight()}/{height}")
     
     for column in range(width):
         for row in range(height):
@@ -107,18 +107,18 @@ def CreateColorPaletteForFrame(referenceFile : str, mobdFrame : MobdFrame, color
             else:
                 colorIndexColors[colorIndex] = [color]
     
-def CreatePaletteForFrames(imgList : list[tuple[int, int]], colorName : str) -> tuple[dict[int, list[int]], list[int]]:
+def CreatePaletteForFrames(imgList : list[tuple[int, int, int]], colorName : str) -> tuple[dict[int, list[int]], list[int]]:
 
     mobdFileList = LoadSprites()
 
     colorIndexColors : dict[int, list[int]] = {}
 
-    for fileIdx, animationIdx in imgList:
-        fileName = f"Pics/Survivors/export image{fileIdx}_{animationIdx}_0 {colorName}.png"
+    for fileIdx, animationIdx, frameIdx in imgList:
+        fileName = f"Pics/Survivors/export image{fileIdx}_{animationIdx}_{frameIdx} {colorName}.png"
         if not os.path.exists(fileName):
             continue
 
-        frame = MobdFile(mobdFileList[fileIdx]).AnimationList[animationIdx].FrameList[0]
+        frame = MobdFile(mobdFileList[fileIdx]).AnimationList[animationIdx].FrameList[frameIdx]
         CreateColorPaletteForFrame(fileName, frame, colorIndexColors)
         
     print(f"number of colors: {len(colorIndexColors)}")
@@ -130,7 +130,14 @@ def CreatePaletteForFrames(imgList : list[tuple[int, int]], colorName : str) -> 
 
 def CreatePalette() -> None:
 
-    imgList : list[tuple[int, int]] = [ (174, 4), (174, 6), (174, 7), (175, 4), (175, 6), (175, 7), (179, 4), (179, 6), (179, 7), (180, 1), (180, 7), (180, 8), (181, 4), (181, 6), (181, 7) ]
+    imgList : list[tuple[int, int, int]] = [(174, 4, 0), (174, 6, 0), (174, 7, 0),
+                                            (175, 4, 0), (175, 6, 0), (175, 7, 0),
+                                            (179, 4, 0), (179, 6, 0), (179, 7, 0),
+                                            (180, 1, 0), (180, 7, 0), (180, 8, 0),
+    #                                         (181, 0, 0), (181, 1, 0), (181, 2, 0), (181, 3, 0),
+                                            (181, 4, 0),
+                                            (181, 5, 0), (181, 5, 2), (181, 5, 5),
+                                            (181, 6, 0), (181, 7, 0)]
 
     print("create palette red")
     colorsRed, paletteRed = CreatePaletteForFrames(imgList, "red")

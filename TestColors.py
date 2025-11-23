@@ -44,16 +44,12 @@ def GetHsvStr(rgb : int) -> str:
     h, s, v = GetHsv(rgb)
     return f"({int(h * 255):02X} {int(s * 255):02X} {int(v * 255):02X})"
 
-def Debug() -> None:
-    colListRed = MobdColorPalette.ColorsSeries9BuildingsRgbRed
-    colListGre = MobdColorPalette.ColorsSeries9BuildingsRgbGre
-    colListBlu = MobdColorPalette.ColorsSeries9BuildingsRgbBlu
-
-    with open("colors.txt", "w") as f:
-        for idx in range(len(colListRed)):
-            red = colListRed[idx]
-            gre = colListGre[idx]
-            blu = colListBlu[idx]
+def ShowPalettes(fileName : str, paletteRed : list[int], paletteGre : list[int], paletteBlu : list[int]) -> None:
+    with open(fileName, "w") as f:
+        for idx in range(len(paletteRed)):
+            red = paletteRed[idx]
+            gre = paletteGre[idx]
+            blu = paletteBlu[idx]
             diff = ""
             
             if red != gre or red != blu or gre != blu:
@@ -112,6 +108,15 @@ def Debug2(folder : str) -> None:
 
 if __name__ == "__main__":
 
-    Debug()
+    # ShowPalettes("colors series9.txt",
+    #              MobdColorPalette.ColorsSeries9BuildingsRgbRed,
+    #              MobdColorPalette.ColorsSeries9BuildingsRgbGre,
+    #              MobdColorPalette.ColorsSeries9BuildingsRgbBlu)
+    
+    ShowPalettes("colors survivors.txt",
+                 MobdColorPalette.ColorsSurvivorsBuildingsRgbRed,
+                 MobdColorPalette.ColorsSurvivorsBuildingsRgbGre,
+                 MobdColorPalette.ColorsSurvivorsBuildingsRgbBlu)
+    
     # Debug2("/Daten1/kknd2/Kknd2MemoryDump")
 
