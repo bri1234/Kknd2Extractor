@@ -31,6 +31,7 @@ import wx.lib.scrolledpanel as wxls
 from Kknd2Reader.KkndFileCompression import UncompressFile
 from Kknd2Reader.KkndFileContainer import ReadFileTypeList, ContainerFile
 from Kknd2Reader.KkndFileMobd import MobdFile, SaveMobdFileStructureInfo, MobdColorPalette
+from Kknd2Reader import KkndPalette
 
 from pathlib import Path
 from termcolor import cprint
@@ -42,11 +43,15 @@ class FrameMain(wx.Frame):
     """ The main window.
     """
     __mobdFileList : list[ContainerFile]
+    __teamColorId : int | None
+    __teamColorMenuItemIds : dict[int, int | None]
 
     def __init__(self):
         super().__init__(None, title = "KKND2 Sprite Viewer", size = (1000, 800)) 
 
         self.__mobdFileList = FrameMain.__LoadSprites()
+        self.__teamColorId = 0
+        self.__teamColorMenuItemIds = {}
 
         self.__CreateMenuBar()
         self.__CreateWidgets()
@@ -93,8 +98,20 @@ class FrameMain(wx.Frame):
         itemMiscPrintPalette = menuMisc.Append(-1, "Print palette")
         itemMiscTest = menuMisc.Append(-1, "Test")
 
+        menuTeamColor = wx.Menu()
+        itemTeamColorLocal = menuTeamColor.AppendRadioItem(-1, "Local MOBD palette")
+        self.__teamColorMenuItemIds[itemTeamColorLocal.GetId()] = None
+
+        for teamColorId in range(8):
+            itemTeamColor = menuTeamColor.AppendRadioItem(-1, f"Team color {teamColorId}")
+            self.__teamColorMenuItemIds[itemTeamColor.GetId()] = teamColorId
+
+            if teamColorId == self.__teamColorId:
+                itemTeamColor.Check(True)
+
         menu = wx.MenuBar()
         menu.Append(menuFile, "File")
+        menu.Append(menuTeamColor, "Team color")
         menu.Append(menuMisc, "Misc")
         self.SetMenuBar(menu)
 
@@ -105,6 +122,9 @@ class FrameMain(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnMiscExportMobdFileStructure, itemMiscExportMobdFileStructure)
         self.Bind(wx.EVT_MENU, self.OnMiscPrintPalette, itemMiscPrintPalette)
         self.Bind(wx.EVT_MENU, self.OnMiscTest, itemMiscTest)
+
+        for itemId in self.__teamColorMenuItemIds:
+            self.Bind(wx.EVT_MENU, self.OnTeamColorSelected, id = itemId)
 
     def OnExit(self, event) -> None:
         """ Closes the application
@@ -117,7 +137,7 @@ class FrameMain(wx.Frame):
         idx = int(self.__listBox.Selection)
 
         mobdFile = MobdFile(self.__mobdFileList[idx])
-        FrameMain.__UpdateBitmap(mobdFile)
+        FrameMain.__UpdateBitmap(mobdFile, self.__teamColorId)
 
         animationIdx = 0
         for animation in mobdFile.AnimationList:
@@ -179,25 +199,37 @@ class FrameMain(wx.Frame):
         Args:
             event: The new selected sprite.
         """
-        idx = int(event.Selection)
+        self.__ShowSelectedSprite(int(event.Selection))
 
+    def OnTeamColorSelected(self, event) -> None:
+        """ User has selected a new team color.
+        """
+        self.__teamColorId = self.__teamColorMenuItemIds[event.GetId()]
+
+        if self.__listBox.Selection != wx.NOT_FOUND:
+            self.__ShowSelectedSprite(int(self.__listBox.Selection))
+
+    def __ShowSelectedSprite(self, idx : int) -> None:
+        """ Shows the selected sprite with the current team color.
+        """
         # with open(f"test{idx}.bin", "wb") as file:
         #     file.write(self.__mobdFileList[idx].RawData)
 
         mobdFile = MobdFile(self.__mobdFileList[idx])
-        FrameMain.__UpdateBitmap(mobdFile)
+        FrameMain.__UpdateBitmap(mobdFile, self.__teamColorId)
 
         bmp = FrameMain.__CreateFileAnimationsImage(mobdFile)
         self.__imageControl.SetBitmap(bmp)
+        self.__imageControl.GetParent().Layout()
 
     @staticmethod
-    def __UpdateBitmap(mobdFile : MobdFile) -> None:
+    def __UpdateBitmap(mobdFile : MobdFile, teamColorId : int | None = 0) -> None:
         for animation in mobdFile.AnimationList:
             for frame in animation.FrameList:
                 if frame.Bitmap is not None:
                     continue
                 
-                pixelData = frame.RenderFrameUInt32Abgr().transpose().tobytes()
+                pixelData = frame.RenderFrameUInt32Abgr(teamColorId).transpose().tobytes()
                 frame.Bitmap = wx.Bitmap.FromBufferRGBA(frame.Image.Width, frame.Image.Height, pixelData)
 
     @staticmethod
@@ -278,6 +310,9 @@ class FrameMain(wx.Frame):
         Returns:
             list[MobdFile]: List of all sprites.
         """
+
+        KkndPalette.load_palettes("assets/palettes")
+
         containerData, _, _ = UncompressFile("assets/spritesheets/gamesprt.lpk")
         fileTypeList, _ = ReadFileTypeList(containerData, "Kknd2Reader/gamesprt.lpk.json")
 
@@ -294,5 +329,3 @@ if __name__ == "__main__":
     frm.Show()
 
     app.MainLoop()
-
-
