@@ -264,7 +264,19 @@ class FrameMain(wx.Frame):
         Returns:
             wx.Bitmap: The bitmap with all sprite animations. 
         """
+        animationLabels = [f"{animationIdx}:" for animationIdx in range(len(mobdFile.AnimationList))]
+
+        measurementBmp = wx.Bitmap(1, 1, 32)
+        measurementDc = wx.MemoryDC()
+        measurementDc.SelectObject(measurementBmp)
+        labelWidth = max((measurementDc.GetTextExtent(label)[0] for label in animationLabels), default = 0)
+        measurementDc.SelectObject(wx.NullBitmap)
+
+        labelSpacing = 8
+        labelColumnWidth = labelWidth + labelSpacing
+
         canvasWidth, canvasHeight = FrameMain.__CalculateCanvasSize(mobdFile)
+        canvasWidth += labelColumnWidth
         bmp = wx.Bitmap(canvasWidth, canvasHeight, 32)
 
         dc = wx.MemoryDC()
@@ -273,10 +285,15 @@ class FrameMain(wx.Frame):
         dc.Clear()
 
         offsetY = 0
-        for animation in mobdFile.AnimationList:
+        for animationIdx, animation in enumerate(mobdFile.AnimationList):
             maxFrameWidth, maxFrameHeight = animation.GetMaxWidthAndHeight()
 
-            offsetX = 0
+            label = animationLabels[animationIdx]
+            _, labelHeight = dc.GetTextExtent(label)
+            labelOffsetY = offsetY + max(0, (maxFrameHeight - labelHeight) // 2)
+            dc.DrawText(label, 0, labelOffsetY)
+
+            offsetX = labelColumnWidth
             for frame in animation.FrameList:
                 dc.DrawBitmap(frame.Bitmap, offsetX, offsetY)
 
@@ -301,7 +318,7 @@ class FrameMain(wx.Frame):
         """ Shows all loaded sprites in the sprite ListBox.
         """
         for file in self.__mobdFileList:
-            self.__listBox.Append(f"{file.FileNumber}: {file.FileName}")
+            self.__listBox.Append(f"{file.FileNumber}: {file.FileName} ({file.Index})")
 
     @staticmethod
     def __LoadSprites() -> list[ContainerFile]:
